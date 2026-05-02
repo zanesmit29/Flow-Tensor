@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: FlowTensor API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: parse
+    description: Python code parsing operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /parse:
+    post:
+      operationId: parseCode
+      tags: [parse]
+      summary: Parse Python code into a flow graph
+      description: Parses PyTorch or Pandas code using AST analysis and returns nodes and edges representing the data flow graph
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParseRequest"
+      responses:
+        "200":
+          description: Successfully parsed code into a flow graph
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParseResponse"
+        "422":
+          description: Code could not be parsed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParseError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +60,98 @@ components:
           type: string
       required:
         - status
-
+    ParseRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Python source code to parse (PyTorch or Pandas)
+      required:
+        - code
+    FlowNode:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique node identifier
+        type:
+          type: string
+          enum: [pandas, pytorch, input, output, intermediate]
+          description: Category of the node
+        label:
+          type: string
+          description: Short display name for the node (e.g., "dropna()")
+        description:
+          type: string
+          description: Plain-English explanation of what the operation does
+        input_shape:
+          type: string
+          description: Inferred input shape/size (e.g., "1000x5", "[32, 128]")
+          nullable: true
+        output_shape:
+          type: string
+          description: Inferred output shape/size (e.g., "800x3", "[32, 64]")
+          nullable: true
+        position_x:
+          type: number
+          description: Suggested x position for the node in the graph
+        position_y:
+          type: number
+          description: Suggested y position for the node in the graph
+      required:
+        - id
+        - type
+        - label
+        - description
+        - input_shape
+        - output_shape
+        - position_x
+        - position_y
+    FlowEdge:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique edge identifier
+        source:
+          type: string
+          description: Source node id
+        target:
+          type: string
+          description: Target node id
+      required:
+        - id
+        - source
+        - target
+    ParseResponse:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/FlowNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/FlowEdge"
+        framework:
+          type: string
+          enum: [pandas, pytorch, mixed, unknown]
+          description: Detected framework in the code
+      required:
+        - nodes
+        - edges
+        - framework
+    ParseError:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-friendly error message
+        detail:
+          type: string
+          description: Technical detail about the parse failure
+          nullable: true
+      required:
+        - error
+        - detail

@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "FlowTensor"
+version = "1.0.0"
+id = "artifacts/flowtensor"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18846
+
+[services.development]
+run = "pnpm --filter @workspace/flowtensor run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/flowtensor", "run", "build" ]
+publicDir = "artifacts/flowtensor/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18846"
+BASE_PATH = "/"

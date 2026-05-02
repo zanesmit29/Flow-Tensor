@@ -1,0 +1,57 @@
+App: FlowTensor
+
+What to build
+A web app where data scientists and learners paste PyTorch or Pandas code 
+and instantly see a beautiful, interactive node graph that visualizes how 
+data flows and transforms — making ML pipelines intuitive and fun to explore.
+
+Tech stack
+Frontend: React + Tailwind CSS + React Flow + Framer Motion (animations)
+Backend: Python / FastAPI
+Database: None (stateless)
+Auth: None
+APIs: None (all processing is server-side)
+
+Core features (MVP only)
+1. Code paste input — sleek editor with syntax highlighting (CodeMirror) 
+   and a glowing "Visualize!" CTA button
+2. AST parser — Python backend parses code using the `ast` module, extracts 
+   transformation steps for Pandas and PyTorch ops
+3. Animated node graph — each step animates in one by one using Framer Motion; 
+   React Flow renders the interactive, draggable graph
+4. Shape/size badges — each node shows inferred input/output shape with a 
+   color pill (e.g., DataFrame: 1000×5 → 800×3, Tensor: [32,128] → [32,64])
+5. Hover tooltips — hovering a node shows a plain-English explanation of what 
+   that operation does (e.g., "dropna() removes rows with missing values")
+
+UI / UX requirements
+- Vibrant dark theme: deep navy/charcoal background (#0f1117), with neon 
+  accent colors — electric blue for Pandas nodes, coral/orange for PyTorch 
+  nodes, purple for intermediate tensor shapes
+- Nodes should have a glassy card style: subtle gradient border, soft glow 
+  on hover, rounded corners
+- Animated edges between nodes — use animated dashed lines to show data 
+  "flowing" from one step to the next
+- Nodes animate in sequentially (staggered, 150ms apart) when the graph 
+  first renders — makes it feel alive
+- Split-screen layout: code editor left, graph canvas right; canvas has 
+  a subtle grid background pattern
+- Large friendly "Visualize!" button with a gradient fill and pulse animation 
+  while parsing
+- Friendly illustrated empty state: "Paste your code and watch it come alive 🚀"
+- Clear, colorful error toast if code can't be parsed — never show raw errors
+
+Start here
+Build the project scaffold: FastAPI backend with a POST /parse endpoint 
+returning transformation nodes as JSON. Then build the React frontend with 
+the split-screen layout, CodeMirror editor, and React Flow canvas. 
+Style the nodes with the glassy dark theme immediately — the visual 
+experience should feel polished from the very first render. Wire up the 
+parse → render flow and confirm it works end-to-end before adding animations.
+
+Constraints
+- Keep the codebase clean and well-commented
+- Use environment variables for all API keys (Replit Secrets)
+- Make it deployable on Replit with one click
+- Do NOT execute user code — AST parse only (hard security boundary)
+- Prioritize visual polish at every step — this app sells itself on looks
