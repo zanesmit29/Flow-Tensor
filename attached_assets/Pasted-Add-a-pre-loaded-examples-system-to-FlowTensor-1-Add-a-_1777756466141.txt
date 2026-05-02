@@ -1,0 +1,59 @@
+Add a pre-loaded examples system to FlowTensor:
+
+1. Add a sleek "Examples" dropdown button in the top navbar, styled with 
+   the existing dark theme and a ✨ icon. Organize examples into two 
+   grouped sections: "PyTorch" and "Pandas / Data Prep"
+
+2. Include these examples:
+
+   --- PyTorch ---
+   - "Training Loop" — model.train(), optimizer.zero_grad(), forward pass, 
+     loss.backward(), optimizer.step(), loss tracking per epoch
+   - "CNN Forward Pass" — nn.Conv2d, BatchNorm2d, ReLU, MaxPool2d, 
+     Flatten, nn.Linear, Softmax
+   - "Custom Dataset & DataLoader" — Dataset __init__, __len__, __getitem__, 
+     transforms.Compose, DataLoader with batch_size and shuffle
+   - "Transfer Learning (ResNet)" — torchvision.models.resnet18, 
+     freeze all layers, replace final fc layer, fine-tune
+   - "Autoencoder" — Encoder with Linear + ReLU layers, bottleneck, 
+     Decoder mirroring encoder, reconstruction loss
+   - "Attention Mechanism" — Q/K/V linear projections, scaled dot-product 
+     attention, softmax, weighted sum of values
+   - "Learning Rate Scheduler" — optimizer setup, StepLR / CosineAnnealingLR, 
+     scheduler.step() in training loop, loss curve tracking
+   - "Model Checkpoint Save/Load" — torch.save state_dict, torch.load, 
+     model.eval(), inference on single sample
+
+   --- Pandas / Data Prep ---
+   - "Titanic Cleanup" — read_csv, dropna, fillna, drop columns, reset_index
+   - "Feature Engineering" — merge DataFrames, apply lambda, get_dummies, 
+     train/test split
+   - "Sales Aggregation" — groupby, agg, sort_values, reset_index
+   - "Time Series Resampling" — parse dates, set_index, resample by week, 
+     rolling mean, interpolate missing
+
+3. For each PyTorch example, add a "complexity badge":
+   - Green = Beginner, Yellow = Intermediate, Red = Advanced
+   - Training Loop → Intermediate, Attention → Advanced, CNN → Intermediate, 
+     Autoencoder → Advanced, Transfer Learning → Advanced
+
+4. When a user selects an example, animate the code into the editor 
+   (typewriter effect, ~20ms per character) then auto-trigger the 
+   Visualize button after a 600ms delay — make it feel alive.
+
+5. Each example card in the dropdown should show:
+   - Name + complexity badge
+   - Step count (e.g., "8 steps")
+   - Color tag (blue = Pandas, orange = PyTorch)
+
+6. On first load (empty state), show the examples panel open by default 
+   with the prompt: "Try an example to see the magic ✨"
+   — default-highlight the "Training Loop" example as the featured pick.
+
+7. Add a subtle "Why is this complex?" tooltip on Advanced examples 
+   explaining in one sentence why that pattern trips people up 
+   (e.g., "Attention mechanisms are hard to follow because Q, K, and V 
+   tensors transform independently before combining.")
+
+Do not change any existing parse or graph logic — this is purely a 
+frontend enhancement layered on top of what already works.
