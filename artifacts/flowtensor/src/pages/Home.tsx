@@ -11,28 +11,75 @@ import GraphCanvas from '@/components/flow/GraphCanvas';
 const DEFAULT_CODE = `import pandas as pd
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
-# Pandas Data Prep
-df = pd.read_csv("dataset.csv")
+# ── 1. Load & Clean ──────────────────────────────────────────
+df = pd.read_csv("transactions.csv")
 df = df.dropna()
-features = df[['age', 'income', 'score']]
-labels = df['target']
+df = df.drop_duplicates()
+df = df.rename(columns={"amt": "amount", "ts": "timestamp"})
+df = df.astype({"amount": float, "user_id": int})
 
-# PyTorch Model
-class SimpleNet(nn.Module):
-    def __init__(self):
+# ── 2. Feature Engineering ───────────────────────────────────
+df = df.sort_values("timestamp")
+df["amount_zscore"] = (df["amount"] - df["amount"].mean()) / df["amount"].std()
+df["rolling_avg"] = df.groupby("user_id")["amount"].transform(
+    lambda x: x.rolling(7, min_periods=1).mean()
+)
+df = df.fillna(0)
+stats = df.groupby("user_id").agg({"amount": "sum", "amount_zscore": "mean"})
+stats = stats.reset_index()
+df = df.merge(stats, on="user_id", suffixes=("", "_agg"))
+df = df.drop(columns=["timestamp"])
+
+# ── 3. Build Tensors ─────────────────────────────────────────
+X = torch.tensor(df[["amount_zscore", "rolling_avg", "amount_agg"]].values, dtype=torch.float32)
+y = torch.tensor(df["label"].values, dtype=torch.long)
+X = F.normalize(X, dim=0)
+
+# ── 4. Fraud Detection Model ─────────────────────────────────
+class FraudDetector(nn.Module):
+    def __init__(self, input_dim=3, hidden=128, num_classes=2):
         super().__init__()
-        self.fc1 = nn.Linear(3, 64)
+        self.embedding = nn.Embedding(10000, 16)
+        self.bn_input = nn.BatchNorm1d(input_dim)
+        self.fc1 = nn.Linear(input_dim, hidden)
+        self.bn1 = nn.BatchNorm1d(hidden)
+        self.drop1 = nn.Dropout(0.3)
+        self.fc2 = nn.Linear(hidden, hidden // 2)
+        self.bn2 = nn.BatchNorm1d(hidden // 2)
+        self.drop2 = nn.Dropout(0.2)
+        self.fc3 = nn.Linear(hidden // 2, 32)
+        self.fc_out = nn.Linear(32, num_classes)
         self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(64, 1)
-        self.sigmoid = nn.Sigmoid()
+        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
+        x = self.bn_input(x)
         x = self.fc1(x)
+        x = self.bn1(x)
         x = self.relu(x)
+        x = self.drop1(x)
         x = self.fc2(x)
-        out = self.sigmoid(x)
-        return out
+        x = self.bn2(x)
+        x = self.relu(x)
+        x = self.drop2(x)
+        x = self.fc3(x)
+        x = self.relu(x)
+        logits = self.fc_out(x)
+        return self.softmax(logits)
+
+model = FraudDetector()
+loss_fn = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+# ── 5. Training Loop ─────────────────────────────────────────
+for epoch in range(10):
+    logits = model(X)
+    loss = loss_fn(logits, y)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
 `;
 
 export default function Home() {
