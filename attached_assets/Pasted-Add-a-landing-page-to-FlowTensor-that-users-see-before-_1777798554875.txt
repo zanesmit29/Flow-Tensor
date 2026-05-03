@@ -1,0 +1,107 @@
+Add a landing page to FlowTensor that users see before entering the app.
+Same dark navy/charcoal theme as the existing app (#0f1117 background).
+Big, bold, confident. Single purpose: get people to click "Get Started."
+
+--- ROUTING ---
+
+Add simple hash-based routing:
+- "/" (no hash) → Landing page
+- "#app" → The existing visualizer app
+
+The "Get Started" button navigates to "#app".
+On page load, if hash is "#app", skip the landing page entirely.
+
+--- LAYOUT ---
+
+Full viewport height. Vertically centered content. No scrolling needed.
+
+Structure (top to bottom):
+
+1. TOP NAV (minimal)
+   - FlowTensor logo (left) — same SVG logo as the app
+   - "GitHub" text link (right, muted, opens in new tab — use #)
+   No other nav items.
+
+2. HERO SECTION (center of viewport)
+
+   EYEBROW TAG:
+   Small pill badge above the headline:
+   "✦ Built for Data Scientists & ML Engineers"
+   Style: semi-transparent white border, small font, letter-spaced
+
+   HEADLINE (display font, very large — use --text-hero):
+   Line 1: "Understand your"
+   Line 2: "code visually."
+   Line 1 in white. Line 2 in a gradient:
+   left: electric blue (#60a5fa) → right: violet (#a78bfa)
+   Use background-clip: text for the gradient effect.
+
+   SUBHEADLINE (--text-lg, muted white, max-width 520px, centered):
+   "Paste any PyTorch or Pandas code and instantly see 
+    an interactive graph of how your data flows, 
+    transforms, and moves through every step."
+
+   CTA BUTTON:
+   "Get Started — it's free →"
+   Large (padding: 16px 40px), rounded-full, gradient fill:
+   background: linear-gradient(135deg, #3b82f6, #8b5cf6)
+   On hover: scale(1.03), increase glow shadow
+   On click: navigate to #app with a smooth fade transition
+
+   SECONDARY LINK below button (small, muted):
+   "No signup required · Works in your browser"
+
+3. ANIMATED CODE PREVIEW (below the CTA, above the fold fold)
+
+   Show a static but visually rich preview of the app:
+   A dark card (border: 1px solid rgba(255,255,255,0.08), border-radius: 16px)
+   containing a simplified mockup of the split-screen layout:
+   - LEFT: 6-8 lines of syntax-highlighted Python 
+     (use the Pandas Titanic snippet — just display as styled HTML, not a real editor)
+   - RIGHT: 3-4 node cards in a mini graph layout 
+     (use absolute positioned divs styled as nodes — no React Flow needed here)
+     Show: read_csv() → dropna() → fillna() → reset_index()
+     with animated dashed edges between them (CSS animation)
+   
+   This card should have a soft glow: 
+   box-shadow: 0 0 80px rgba(96, 165, 250, 0.12)
+
+--- ANIMATIONS ---
+
+On page load, stagger these in with Framer Motion (or CSS if simpler):
+1. Eyebrow pill fades up (0ms delay)
+2. Headline fades + slides up (100ms delay)  
+3. Subheadline fades up (200ms delay)
+4. CTA button fades up + subtle scale from 0.95 (300ms delay)
+5. Preview card fades up (500ms delay)
+
+All animations: ease-out, 500ms duration. 
+Respect prefers-reduced-motion.
+
+--- BACKGROUND ---
+
+Add a subtle radial gradient behind the hero:
+- One large soft blue glow top-left: radial-gradient circle at 20% 30%, 
+  rgba(59, 130, 246, 0.08) 0%, transparent 60%
+- One soft purple glow bottom-right: 
+  rgba(139, 92, 246, 0.06) 0%, transparent 60%
+NO blobs, NO animated particles, NO heavy effects. 
+Subtle atmospheric depth only.
+
+--- TRANSITION TO APP ---
+
+When "Get Started" is clicked:
+- Fade the landing page out (opacity 0, 300ms)
+- Fade the app in (opacity 0 → 1, 300ms)
+- The app should load with the Examples panel open by default 
+  so users immediately see something to try
+
+--- MOBILE ---
+
+Stack the preview card below the CTA on mobile.
+Headline font scales down using existing clamp() tokens.
+CTA button full-width on mobile.
+Hide the preview card on screens < 480px to keep it clean.
+
+Do not change any existing app logic.
+Build the landing page as a separate view toggled by hash routing.
