@@ -252,6 +252,8 @@ def explain_node(req: ExplainNodeRequestModel):
             headers={
                 "Authorization": f"Bearer {key}",
                 "Content-Type": "application/json",
+                "User-Agent": "FlowTensor/1.0 (+https://flowtensor.app)",
+                "Accept": "application/json",
             },
             method="POST",
         )
