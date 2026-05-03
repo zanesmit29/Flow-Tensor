@@ -13,6 +13,9 @@ interface CustomNodeData {
   input_shape: string | null;
   output_shape: string | null;
   index: number;
+  // Step-through mode flags (injected by GraphCanvas)
+  isActive?: boolean;
+  isDimmed?: boolean;
 }
 
 const NODE_W = 200;
@@ -22,16 +25,44 @@ function CustomNodeComponent({ data, isConnectable }: { data: CustomNodeData; is
   const meta = getShapeMeta(data.label, data.type);
   const Shape = SHAPE_COMPONENTS[meta.category];
 
+  const isActive = !!data.isActive;
+  const isDimmed = !!data.isDimmed;
+
   return (
     <Tooltip delayDuration={200}>
       <TooltipTrigger asChild>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: (data.index || 0) * 0.08, ease: "easeOut" }}
+          animate={{
+            opacity: isDimmed ? 0.3 : 1,
+            y: 0,
+            scale: isActive ? 1.05 : 1,
+          }}
+          transition={
+            isActive
+              ? { type: "spring", stiffness: 240, damping: 18 }
+              : { duration: 0.4, delay: (data.index || 0) * 0.08, ease: "easeOut" }
+          }
           className="relative cursor-grab active:cursor-grabbing group"
           style={{ width: NODE_W, height: NODE_H }}
+          data-active={isActive ? "true" : "false"}
+          data-dimmed={isDimmed ? "true" : "false"}
+          data-testid={`flow-node-${data.index ?? 0}`}
         >
+          {/* Pulsing glow ring shown only when this node is the active step */}
+          {isActive && (
+            <motion.div
+              aria-hidden
+              className="absolute -inset-2 rounded-2xl pointer-events-none"
+              style={{
+                boxShadow: `0 0 20px ${meta.color}, 0 0 44px ${meta.color}66, inset 0 0 18px ${meta.color}33`,
+                border: `1.5px solid ${meta.color}`,
+              }}
+              animate={{ opacity: [0.45, 1, 0.45], scale: [1, 1.04, 1] }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+            />
+          )}
+
           {data.type !== "input" && (
             <Handle
               type="target"

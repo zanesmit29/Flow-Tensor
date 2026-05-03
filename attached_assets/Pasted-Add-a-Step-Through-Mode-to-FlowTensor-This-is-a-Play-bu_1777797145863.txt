@@ -1,0 +1,78 @@
+Add a Step-Through Mode to FlowTensor. This is a "Play" button that 
+walks through the pipeline one node at a time, making the visualization 
+feel like an interactive debugger.
+
+--- CONTROLS ---
+
+Add a control bar directly below the graph canvas (above the bottom edge),
+containing:
+
+[⏮ Reset]  [◀ Prev]  [▶ Play / ⏸ Pause]  [Next ▶]  [Step 2 of 7]
+
+Style the control bar with the existing dark theme. 
+Gradient accent on the Play/Pause button. 
+Step counter pill (e.g., "Step 2 of 7") in the top-right of the canvas.
+
+--- STEP BEHAVIOR ---
+
+Each "step" advances to the next node in the pipeline in order.
+
+When a node is the ACTIVE step:
+- Scale it up slightly (1.05×) with a smooth spring animation (Framer Motion)
+- Add a bright pulsing glow ring around the node 
+  (color matches the node type — blue for transform, red for filter, etc.)
+- Highlight the corresponding line(s) in the code editor on the left 
+  by adding a glowing left border accent and a soft background tint 
+  on those line numbers
+- Dim all OTHER nodes to 30% opacity so focus is clear
+
+When advancing to the next step:
+- Animate the connecting edge between the previous and current node 
+  with a fast traveling dot (150ms) before the next node activates — 
+  this makes data feel like it "arrives" at the next step
+
+--- EXPLANATION PANEL ---
+
+When a node is active, show a slide-in panel from the right side of 
+the canvas (or as an overlay card bottom-right, 320px wide) containing:
+
+1. Node name + type badge (e.g., "dropna() — FILTER")
+2. Plain-English explanation (1-2 sentences):
+   "Removes any row where Age or Embarked is null. 
+    This ensures downstream operations don't fail on missing data."
+3. Shape delta: "1,309 rows → 1,043 rows (−20.3%)" with a mini bar visual
+4. Parameters: key/value list of extracted AST args
+5. "Why this matters" tip (1 sentence, italic, muted color):
+   "Missing values in tree-based models cause splits to fail silently."
+
+Store the plain-English explanations as a lookup table on the frontend 
+keyed by operation name. Include entries for all ops in the current 
+example library (dropna, fillna, merge, groupby, nn.Linear, ReLU, 
+Conv2d, BatchNorm, DataLoader, optimizer.step, loss.backward, etc.)
+
+--- AUTO-PLAY ---
+
+When Play is pressed, auto-advance every 2 seconds.
+Add a speed control: 0.5× / 1× / 2× (default 1×).
+Pause automatically on the last node.
+
+--- CODE EDITOR SYNC ---
+
+When in step-through mode, the code editor line highlight must stay 
+in sync with the active node. Each node returned by the backend 
+should include a line_start and line_end field from the AST 
+(ast.lineno and ast.end_lineno). Use these to drive the highlight.
+
+Update the /parse endpoint to include line_start and line_end 
+on every node in the response JSON.
+
+--- ENTRY / EXIT ---
+
+Add a "Step Through ▶" button next to "Visualize Data Flow" 
+(or as a mode toggle) to enter step-through mode.
+Add an "✕ Exit" button top-right of the control bar to return 
+to the normal full graph view, restoring all nodes to full opacity.
+
+Start with the control bar + active node highlight + dimming of 
+inactive nodes. Confirm that works before adding the explanation 
+panel and code editor sync.
