@@ -56,6 +56,12 @@ export const ParseCodeResponse = zod.object({
       position_y: zod
         .number()
         .describe("Suggested y position for the node in the graph"),
+      group: zod
+        .string()
+        .nullish()
+        .describe(
+          "Optional group container name (e.g., class body, loop body) — frontend can render these as React Flow subflows",
+        ),
     }),
   ),
   edges: zod.array(

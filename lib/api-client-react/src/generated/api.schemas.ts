@@ -44,6 +44,8 @@ export interface FlowNode {
   position_x: number;
   /** Suggested y position for the node in the graph */
   position_y: number;
+  /** Optional group container name (e.g., class body, loop body) — frontend can render these as React Flow subflows */
+  group?: string | null;
 }
 
 export interface FlowEdge {

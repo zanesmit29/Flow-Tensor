@@ -1,0 +1,99 @@
+The AST parser is critically incomplete for PyTorch code. 
+It only detects simple function calls like tensor() and misses:
+- Class definitions and their methods (__init__, __len__, __getitem__)
+- Chained method calls (transforms.Compose([...]))
+- Nested constructor arguments (DataLoader(ds, batch_size=32, shuffle=True))
+- For loops containing .to("cuda") device transfers
+- Assignment patterns (train_ds = ImageDataset(...))
+
+Rewrite the Python /parse endpoint with these specific improvements:
+
+--- 1. CLASS BODY EXTRACTION ---
+
+When the parser encounters a class definition (ast.ClassDef), 
+do NOT skip it. Instead:
+- Create a GROUP node for the class (e.g., "ImageDataset class")
+- Walk each method (ast.FunctionDef) inside the class and extract:
+  - __init__: extract all self.X = ... assignments as DATA SOURCE nodes
+    (image_paths, labels, transform pipeline)
+  - __getitem__: extract each line as a sequential TRANSFORM node
+    (load_image → transform → tensor → return)
+  - __len__: create a single utility node labeled "len(dataset)"
+
+--- 2. TRANSFORMS.COMPOSE PIPELINE ---
+
+When the parser encounters transforms.Compose([...]), 
+extract each transform in the list as a SEPARATE sequential node:
+  - Resize((224,224))       → TRANSFORM node, shape: [H,W,C] → [224,224,C]
+  - ToTensor()              → TRANSFORM node, shape: [H,W,C] → [C,H,W] float
+  - Normalize(mean, std)    → TRANSFORM node, annotate mean/std values
+
+These should be connected in a vertical chain, not collapsed into one node.
+
+--- 3. DATALOADER DETECTION ---
+
+Detect assignment patterns: X = DataLoader(dataset, **kwargs)
+Extract and display as a DATA SOURCE node with key params as badges:
+  - batch_size value
+  - shuffle=True/False
+  - num_workers value
+Create separate nodes for train_loader and val_loader.
+
+--- 4. FOR LOOP EXTRACTION ---
+
+When encountering a for loop (ast.For):
+- Create a LOOP GROUP node labeled with the iterator 
+  (e.g., "for images, labels in train_loader")
+- Extract ops inside the loop body as child nodes:
+  - .to("cuda") calls → TRANSFORM node labeled "→ GPU (CUDA)"
+  - Any model calls inside the loop → PYTORCH LAYER node
+
+--- 5. VARIABLE ASSIGNMENT TRACKING ---
+
+Track assigned variable names across the full file so nodes 
+can reference meaningful names, not just the function called:
+  - "train_ds = ImageDataset(...)" → node label: "train_ds (ImageDataset)"
+  - "val_loader = DataLoader(...)" → node label: "val_loader · batch=64"
+
+--- 6. EXPECTED OUTPUT FOR THE ATTACHED EXAMPLE ---
+
+For the Custom Dataset & DataLoader example, the parser should produce 
+these nodes in order:
+
+[DATA SOURCE] ImageDataset.__init__
+  └─ self.image_paths, self.labels, self.transform
+
+[TRANSFORM chain] transforms.Compose pipeline:
+  [TRANSFORM] Resize (224×224)
+  [TRANSFORM] ToTensor → [C,H,W] float
+  [TRANSFORM] Normalize mean=[0.485,0.456,0.406]
+
+[OUTPUT] __len__ → returns dataset size
+
+[TRANSFORM chain] __getitem__ pipeline:
+  [TRANSFORM] load_image(idx)
+  [TRANSFORM] self.transform(image)
+  [DATA SOURCE] torch.tensor(label, dtype=long)
+  [OUTPUT] return image, label
+
+[DATA SOURCE] train_ds = ImageDataset(train_paths, train_labels)
+[DATA SOURCE] val_ds   = ImageDataset(val_paths, val_labels)
+
+[DATA SOURCE] train_loader · batch=32 · shuffle=True · workers=4
+[DATA SOURCE] val_loader   · batch=64 · shuffle=False · workers=4
+
+[LOOP GROUP] for images, labels in train_loader
+  [TRANSFORM] images → GPU (CUDA)
+  [TRANSFORM] labels → GPU (CUDA)
+
+--- IMPLEMENTATION NOTES ---
+
+Use ast.walk() with isinstance checks for each node type.
+Use ast.unparse() (Python 3.9+) to extract parameter values as strings.
+Handle nested ast.Call nodes recursively.
+If the class has multiple methods, process them in definition order.
+Return nodes with a "group" field so the frontend can visually 
+group class body nodes in a React Flow subflow container.
+
+Test against this exact code before marking complete:
+The expected output is 15+ nodes, not 1.

@@ -98,6 +98,10 @@ components:
         position_y:
           type: number
           description: Suggested y position for the node in the graph
+        group:
+          type: string
+          description: Optional group container name (e.g., class body, loop body) — frontend can render these as React Flow subflows
+          nullable: true
       required:
         - id
         - type
