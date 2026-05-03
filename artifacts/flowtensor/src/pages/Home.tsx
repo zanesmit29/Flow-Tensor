@@ -268,7 +268,7 @@ export default function Home() {
               }`}
             >
               <HelpCircle className="w-3.5 h-3.5" />
-              FAQ
+              How to get started
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.05 }}
