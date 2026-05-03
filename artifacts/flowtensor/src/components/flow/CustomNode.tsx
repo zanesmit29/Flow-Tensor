@@ -1,9 +1,10 @@
 import { memo } from "react";
 import { Handle, Position } from "@xyflow/react";
 import { motion } from "framer-motion";
-import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { FlowNodeType } from "@workspace/api-client-react";
+import { getShapeMeta } from "@/lib/shapeMap";
+import { SHAPE_COMPONENTS } from "./shapes/Shapes";
 
 interface CustomNodeData {
   type: FlowNodeType;
@@ -14,61 +15,68 @@ interface CustomNodeData {
   index: number;
 }
 
-const colorMap: Record<FlowNodeType, string> = {
-  pandas: "border-[#3b82f6] shadow-[#3b82f6]/20",
-  pytorch: "border-[#f97316] shadow-[#f97316]/20",
-  intermediate: "border-[#a855f7] shadow-[#a855f7]/20",
-  input: "border-[#22c55e] shadow-[#22c55e]/20",
-  output: "border-[#ef4444] shadow-[#ef4444]/20",
-};
-
-const textMap: Record<FlowNodeType, string> = {
-  pandas: "text-[#3b82f6]",
-  pytorch: "text-[#f97316]",
-  intermediate: "text-[#a855f7]",
-  input: "text-[#22c55e]",
-  output: "text-[#ef4444]",
-};
+const NODE_W = 200;
+const NODE_H = 92;
 
 function CustomNodeComponent({ data, isConnectable }: { data: CustomNodeData; isConnectable: boolean }) {
-  const hasShape = data.input_shape || data.output_shape;
-  const shapeText = `${data.input_shape || "?"} → ${data.output_shape || "?"}`;
+  const meta = getShapeMeta(data.label, data.type);
+  const Shape = SHAPE_COMPONENTS[meta.category];
 
   return (
     <Tooltip delayDuration={200}>
       <TooltipTrigger asChild>
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: (data.index || 0) * 0.15, ease: "easeOut" }}
-          className={`relative min-w-[160px] group cursor-grab active:cursor-grabbing rounded-xl border bg-card/90 backdrop-blur-xl p-4 shadow-xl flex flex-col gap-2 items-center text-center transition-all hover:shadow-2xl ${colorMap[data.type]}`}
+          transition={{ duration: 0.4, delay: (data.index || 0) * 0.08, ease: "easeOut" }}
+          className="relative cursor-grab active:cursor-grabbing group"
+          style={{ width: NODE_W, height: NODE_H }}
         >
           {data.type !== "input" && (
-            <Handle type="target" position={Position.Top} isConnectable={isConnectable} className="!bg-muted-foreground w-3 h-3 border-2" />
+            <Handle
+              type="target"
+              position={Position.Top}
+              isConnectable={isConnectable}
+              className="!w-2.5 !h-2.5 !border-2 !bg-background"
+              style={{ borderColor: meta.color }}
+            />
           )}
 
-          <div className="flex flex-col items-center gap-2">
-            <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-black/40 ${textMap[data.type]}`}>
-              {data.type}
+          <Shape width={NODE_W} height={NODE_H} color={meta.color} />
+
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+            <span
+              className="text-[9px] font-semibold uppercase tracking-[0.14em] leading-none mb-1.5"
+              style={{ color: meta.color, opacity: 0.85 }}
+            >
+              {meta.label}
             </span>
-            <div className="font-mono font-bold text-sm tracking-tight text-foreground">{data.label}</div>
-            
-            {hasShape && (
-              <Badge variant="outline" className="mt-1 w-fit bg-black/30 border-white/5 font-mono text-[10px] text-muted-foreground whitespace-nowrap">
-                {data.input_shape && <span>{data.input_shape}</span>}
-                {data.input_shape && data.output_shape && <span className="text-white/30 mx-1">→</span>}
-                {data.output_shape && <span className="text-white">{data.output_shape}</span>}
-              </Badge>
-            )}
+            <div className="font-mono font-bold text-[13px] tracking-tight text-foreground truncate max-w-full leading-tight">
+              {data.label}
+            </div>
           </div>
 
           {data.type !== "output" && (
-            <Handle type="source" position={Position.Bottom} isConnectable={isConnectable} className="!bg-muted-foreground w-3 h-3 border-2" />
+            <Handle
+              type="source"
+              position={Position.Bottom}
+              isConnectable={isConnectable}
+              className="!w-2.5 !h-2.5 !border-2 !bg-background"
+              style={{ borderColor: meta.color }}
+            />
           )}
         </motion.div>
       </TooltipTrigger>
-      <TooltipContent side="right" className="max-w-[250px] border-white/10 shadow-2xl bg-card p-3 text-sm font-sans">
+      <TooltipContent side="right" className="max-w-[280px] border-white/10 shadow-2xl bg-card p-3 text-sm font-sans">
+        <p className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: meta.color }}>
+          {meta.label}
+        </p>
         <p>{data.description}</p>
+        {(data.input_shape || data.output_shape) && (
+          <p className="font-mono text-[11px] text-muted-foreground mt-2 pt-2 border-t border-white/10">
+            {data.input_shape ?? "?"} <span className="text-white/30 mx-1">→</span> {data.output_shape ?? "?"}
+          </p>
+        )}
       </TooltipContent>
     </Tooltip>
   );

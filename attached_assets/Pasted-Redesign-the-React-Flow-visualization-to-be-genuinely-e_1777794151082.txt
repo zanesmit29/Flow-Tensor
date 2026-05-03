@@ -1,0 +1,91 @@
+Redesign the React Flow visualization to be genuinely educational 
+using a semantic shape language system. Replace all uniform rectangle 
+nodes with shape-differentiated custom nodes.
+
+--- SHAPE TYPE SYSTEM ---
+
+Create a centralized Shape component using SVG paths (same pattern as 
+reactflow.dev/examples/nodes/shapes). Map each op category to a shape:
+
+1. DATA SOURCE  → Cylinder shape (database icon top) — green (#22c55e)
+   Ops: read_csv, read_json, read_excel, DataLoader, Dataset
+
+2. FILTER/REDUCE → Inverted trapezoid (funnel) — coral (#f87171)
+   Ops: dropna, query, filter, loc, iloc, head, tail, sample
+
+3. TRANSFORM → Parallelogram (skewed rect) — electric blue (#60a5fa)
+   Ops: astype, apply, map, rename, assign, str accessor ops
+
+4. AGGREGATE → Hexagon — purple (#a78bfa)
+   Ops: groupby, agg, sum, mean, count, pivot_table, resample
+
+5. MERGE/JOIN → Diamond — gold (#fbbf24)
+   Ops: merge, concat, join, append
+
+6. OUTPUT/SINK → Stadium pill (wide rounded) — orange (#fb923c)
+   Ops: to_csv, to_json, reset_index (final), print
+
+7. PYTORCH LAYER → Rectangle with a left accent stripe — blue (#3b82f6)
+   Ops: nn.Linear, nn.Conv2d, nn.LSTM, BatchNorm, Dropout
+
+8. ACTIVATION → Wavy arc shape (use SVG bezier curve border) — violet (#8b5cf6)
+   Ops: ReLU, Sigmoid, Tanh, Softmax, GELU
+
+9. LOSS/OPTIMIZER → Shield/pentagon shape — red (#ef4444)
+   Ops: CrossEntropyLoss, MSELoss, optimizer.step, zero_grad, backward
+
+--- ENRICHED NODE CONTENT ---
+
+Each node must show 3 information layers:
+
+TOP: Operation name in bold (e.g., "dropna()")
+MIDDLE: Key parameters extracted from AST 
+        (e.g., subset=["Age","Embarked"] — truncate to 30 chars)
+BOTTOM: Impact badge — colored pill showing data shape delta:
+  - Green pill: shape unchanged or rows added 
+  - Orange pill: shape slightly reduced (<30% row loss)
+  - Red pill: significant reduction (>30% row loss)
+  - Blue pill: new columns added
+  For PyTorch: show tensor shape (e.g., [32,128] → [32,64])
+
+--- EDGE UPGRADES ---
+
+Replace all static dashed edges with:
+1. Animated flowing dots moving from source to target 
+   (use React Flow animated edge with CSS dot animation)
+2. Edge label showing current data state in transit:
+   "DataFrame [1043×8]" for Pandas
+   "Tensor [32,128]" for PyTorch
+3. Color the edge based on data health:
+   Green: no data loss | Orange: <30% loss | Red: >30% loss
+
+--- LAYOUT ---
+
+Switch from grid layout to a top-to-bottom DAG layout using elkjs:
+npm install elkjs web-worker
+
+Use ELK's "layered" algorithm so nodes flow naturally downward 
+with parallel branches side-by-side (like the current Titanic example 
+has dropna and rename as siblings — ELK will handle this automatically).
+
+--- LEGEND PANEL ---
+
+Add a small floating legend panel (bottom-left of canvas) showing 
+all 9 shape types with their color and meaning. 
+Collapsible with a "?" toggle button.
+Style to match the dark theme.
+
+--- TOOLTIP ON HOVER ---
+
+Each node on hover shows a tooltip card with:
+- Plain English explanation (1 sentence): 
+  "dropna() removes any row that contains a null value in 
+   the specified columns — here Age and Embarked."
+- Documentation link: 
+  "pandas.pydata.org/docs/reference/api/pandas.DataFrame.dropna"
+  (open in new tab)
+
+Do not change the AST parsing backend. 
+Only change the frontend node rendering, edge rendering, and layout engine.
+Start with the shape component + node type mapping first, 
+confirm it renders correctly, then add the enriched content layers.
