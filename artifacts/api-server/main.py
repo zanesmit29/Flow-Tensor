@@ -234,15 +234,18 @@ def explain_node(req: ExplainNodeRequestModel):
     if cached is not None:
         return {"source": "ai", "cached": True, **cached}
 
+    # Note: qwen3-32b is a reasoning model that emits <think>…</think> blocks
+    # before its actual answer. Groq's `response_format: json_object` enforcement
+    # rejects this with json_validate_failed. We drop the strict format and rely
+    # on the post-processing below to strip thinking + fenced code blocks.
     payload = {
         "model": GROQ_MODEL,
         "messages": [
             {"role": "system", "content": _GROQ_SYSTEM_PROMPT},
             {"role": "user", "content": _build_user_prompt(req)},
         ],
-        "max_tokens": 300,
+        "max_tokens": 1200,
         "temperature": 0.3,
-        "response_format": {"type": "json_object"},
     }
 
     try:
