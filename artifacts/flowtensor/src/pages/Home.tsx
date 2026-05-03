@@ -5,11 +5,9 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { useParseCode } from '@workspace/api-client-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Play, Sparkles, Share2 } from 'lucide-react';
+import { Loader2, Play, Sparkles } from 'lucide-react';
 import GraphCanvas from '@/components/flow/GraphCanvas';
 import ExamplesPanel from '@/components/ExamplesPanel';
-import ShareCard from '@/components/ShareCard';
-import { useShare } from '@/hooks/useShare';
 import { type Example } from '@/data/examples';
 
 const DEFAULT_CODE = `import pandas as pd
@@ -95,7 +93,6 @@ export default function Home() {
   const typewriterRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const visualizeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mutateRef = useRef<((args: { data: { code: string } }) => void) | null>(null);
-  const shareCardRef = useRef<HTMLDivElement | null>(null);
 
   const { toast } = useToast();
 
@@ -115,8 +112,6 @@ export default function Home() {
 
   // Keep a ref to the mutate fn so typewriter callback can call it without stale closure
   mutateRef.current = parseMutation.mutate;
-
-  const { handleShare, isSharing } = useShare(parseMutation.data, shareCardRef);
 
   // Forced dark mode
   useEffect(() => {
@@ -200,29 +195,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right nav controls */}
+          {/* Examples button */}
           <div className="flex items-center gap-2">
-            {/* Share button — visible after first visualization */}
-            {parseMutation.data && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.85 }}
-                animate={{ opacity: 1, scale: 1 }}
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                onClick={handleShare}
-                disabled={isSharing}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-purple-500/30 bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-purple-200 hover:from-blue-600/30 hover:to-purple-600/30 hover:border-purple-400/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isSharing ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Share2 className="w-3.5 h-3.5" />
-                )}
-                {isSharing ? 'Exporting…' : 'Share ↗'}
-              </motion.button>
-            )}
-
-            {/* Examples button */}
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
@@ -324,9 +298,6 @@ export default function Home() {
           isPending={parseMutation.isPending}
         />
       </div>
-
-      {/* Off-screen share card — captured by html-to-image */}
-      <ShareCard ref={shareCardRef} data={parseMutation.data} />
 
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes shimmer {

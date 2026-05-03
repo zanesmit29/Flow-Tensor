@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -6,20 +6,25 @@ import {
   Controls,
   useNodesState,
   useEdgesState,
+  useReactFlow,
+  getViewportForBounds,
   Edge,
   Node as FlowFlowNode,
   MarkerType,
-  BackgroundVariant
+  BackgroundVariant,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { toPng } from 'html-to-image';
+import { motion } from 'framer-motion';
+import { Zap, Share2, Loader2 } from 'lucide-react';
 import CustomNode from './CustomNode';
 import type { ParseResponse, FlowNode as ApiFlowNode } from '@workspace/api-client-react';
-import { motion } from 'framer-motion';
-import { Zap } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
-const nodeTypes = {
-  custom: CustomNode,
-};
+const nodeTypes = { custom: CustomNode };
+
+const IMAGE_WIDTH = 1200;
+const IMAGE_HEIGHT = 630;
 
 interface GraphCanvasProps {
   data?: ParseResponse;
@@ -29,6 +34,10 @@ interface GraphCanvasProps {
 function GraphCanvasInner({ data, isPending }: GraphCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowFlowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [isExporting, setIsExporting] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const { getNodes, fitView } = useReactFlow();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (data?.nodes && data?.edges) {
@@ -36,10 +45,7 @@ function GraphCanvasInner({ data, isPending }: GraphCanvasProps) {
         id: node.id,
         type: 'custom',
         position: { x: node.position_x || 0, y: node.position_y || index * 100 },
-        data: {
-          ...node,
-          index,
-        },
+        data: { ...node, index },
       }));
 
       const newEdges = data.edges.map((edge) => {
@@ -51,10 +57,7 @@ function GraphCanvasInner({ data, isPending }: GraphCanvasProps) {
           target: edge.target,
           animated: true,
           style: { stroke: color, strokeWidth: 2, strokeDasharray: '6 3' },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: color,
-          },
+          markerEnd: { type: MarkerType.ArrowClosed, color },
         };
       });
 
@@ -65,6 +68,83 @@ function GraphCanvasInner({ data, isPending }: GraphCanvasProps) {
       setEdges([]);
     }
   }, [data, setNodes, setEdges]);
+
+  const handleExport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+
+    try {
+      // Fit all nodes into view first
+      fitView({ padding: 0.15 });
+      await new Promise(r => setTimeout(r, 350));
+
+      // Hide React Flow chrome (controls, panels) during capture
+      const wrapper = wrapperRef.current;
+      if (wrapper) wrapper.classList.add('rf-exporting');
+      await new Promise(r => setTimeout(r, 60));
+
+      const rfNodes = getNodes();
+
+      // Manually compute bounding rect of all nodes
+      const xs = rfNodes.flatMap(n => [n.position.x, n.position.x + (n.measured?.width ?? 150)]);
+      const ys = rfNodes.flatMap(n => [n.position.y, n.position.y + (n.measured?.height ?? 60)]);
+      const bounds = {
+        x: Math.min(...xs),
+        y: Math.min(...ys),
+        width: Math.max(...xs) - Math.min(...xs),
+        height: Math.max(...ys) - Math.min(...ys),
+      };
+
+      // getViewportForBounds returns {x, y, zoom} Viewport
+      const vp = getViewportForBounds(bounds, IMAGE_WIDTH, IMAGE_HEIGHT, 0.5, 2, 40);
+
+      const viewport = document.querySelector('.react-flow__viewport') as HTMLElement | null;
+      if (!viewport) throw new Error('React Flow viewport not found');
+
+      const options = {
+        backgroundColor: '#0f1117',
+        width: IMAGE_WIDTH,
+        height: IMAGE_HEIGHT,
+        style: {
+          width: `${IMAGE_WIDTH}px`,
+          height: `${IMAGE_HEIGHT}px`,
+          transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
+        },
+      };
+
+      // Call toPng twice — first pass warms up font/style caches,
+      // second pass produces the reliable output
+      await toPng(viewport, options);
+      const dataUrl = await toPng(viewport, options);
+
+      // Download
+      const link = document.createElement('a');
+      link.download = 'flowtensor-pipeline.png';
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Copy tweet
+      const url = window.location.origin;
+      const tweet = `Just visualized my ML pipeline with FlowTensor 🔥\nCheck it out → ${url}\n#DataScience #PyTorch #100DaysOfML`;
+      await navigator.clipboard.writeText(tweet).catch(() => {});
+
+      toast({
+        title: 'Card downloaded + tweet copied to clipboard 🚀',
+        description: 'flowtensor-pipeline.png saved to your downloads.',
+      });
+    } catch (err) {
+      toast({
+        title: 'Export failed — try zooming out first',
+        description: String(err),
+        variant: 'destructive',
+      });
+    } finally {
+      if (wrapperRef.current) wrapperRef.current.classList.remove('rf-exporting');
+      setIsExporting(false);
+    }
+  };
 
   if (!data?.nodes?.length && !isPending) {
     return (
@@ -99,7 +179,7 @@ function GraphCanvasInner({ data, isPending }: GraphCanvasProps) {
   }
 
   return (
-    <div className="w-full h-full relative bg-[#0f1117]">
+    <div ref={wrapperRef} className="w-full h-full relative bg-[#0f1117] react-flow-wrapper">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -115,16 +195,37 @@ function GraphCanvasInner({ data, isPending }: GraphCanvasProps) {
         <Controls className="fill-white !bg-[#1a1d24] !border-white/10 !shadow-2xl" />
       </ReactFlow>
 
+      {/* Framework badge */}
       {data?.framework && data.framework !== 'unknown' && (
         <div className="absolute bottom-6 right-6 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 shadow-xl text-white">
           <div className={`w-2 h-2 rounded-full animate-pulse ${
             data.framework === 'pytorch' ? 'bg-[#f97316] shadow-[0_0_8px_#f97316]' :
-            data.framework === 'pandas' ? 'bg-[#3b82f6] shadow-[0_0_8px_#3b82f6]' :
+            data.framework === 'pandas'  ? 'bg-[#3b82f6] shadow-[0_0_8px_#3b82f6]' :
             'bg-purple-500 shadow-[0_0_8px_#a855f7]'
           }`} />
           <span className="capitalize">{data.framework} Detected</span>
         </div>
       )}
+
+      {/* Share button — floats in top-right of canvas */}
+      {data?.nodes?.length ? (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleExport}
+          disabled={isExporting}
+          className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-purple-500/30 bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-purple-200 hover:from-blue-600/35 hover:to-purple-600/35 hover:border-purple-400/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed backdrop-blur-md shadow-lg"
+        >
+          {isExporting ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Share2 className="w-3.5 h-3.5" />
+          )}
+          {isExporting ? 'Exporting…' : 'Share ↗'}
+        </motion.button>
+      ) : null}
     </div>
   );
 }
@@ -139,11 +240,11 @@ export default function GraphCanvas(props: GraphCanvasProps) {
 
 function getNodeColor(type: string): string {
   switch (type) {
-    case 'pandas': return '#3b82f6';
-    case 'pytorch': return '#f97316';
-    case 'input': return '#22c55e';
-    case 'output': return '#ef4444';
+    case 'pandas':       return '#3b82f6';
+    case 'pytorch':      return '#f97316';
+    case 'input':        return '#22c55e';
+    case 'output':       return '#ef4444';
     case 'intermediate': return '#a855f7';
-    default: return '#888888';
+    default:             return '#888888';
   }
 }

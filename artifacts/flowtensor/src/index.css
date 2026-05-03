@@ -1,5 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+
+/* Hide React Flow chrome during PNG export */
+.rf-exporting .react-flow__controls,
+.rf-exporting .react-flow__minimap,
+.rf-exporting .react-flow__panel { display: none !important; }
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));

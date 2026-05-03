@@ -1,0 +1,130 @@
+The share card export is broken. Replace the current html-to-image 
+implementation with the correct React Flow export pattern. 
+Here is exactly what to fix:
+
+--- ROOT CAUSES TO ADDRESS ---
+
+1. CROPPED/MISSING EDGES — The current code targets the wrong DOM element.
+   React Flow edges only render correctly inside `.react-flow__viewport`,
+   but the viewport needs a transform override to capture ALL nodes,
+   not just the visible area.
+
+2. HTML-TO-IMAGE VERSION BUG — v1.11.12+ breaks SVG edge rendering in 
+   React Flow. Pin the version:
+   npm install html-to-image@1.11.11
+
+3. CANVAS TAINT / BLANK EXPORT — If any external image URLs are rendered 
+   inside nodes, they block canvas export. Either remove images from 
+   nodes or convert them to base64 before rendering.
+
+--- THE CORRECT EXPORT IMPLEMENTATION ---
+
+Replace the export function with this exact pattern using React Flow's 
+built-in helpers:
+
+```javascript
+import { getRectOfNodes, getTransformForBounds, useReactFlow } from 'reactflow';
+import { toPng } from 'html-to-image';
+
+function useExportGraph() {
+  const { getNodes } = useReactFlow();
+
+  const exportCard = () => {
+    const nodes = getNodes();
+    const nodesBounds = getRectOfNodes(nodes);
+
+    // Card dimensions (1200x630 for Open Graph)
+    const imageWidth = 1200;
+    const imageHeight = 630;
+
+    const transform = getTransformForBounds(
+      nodesBounds,
+      imageWidth,
+      imageHeight,
+      0.5,   // minZoom
+      2,     // maxZoom
+      40     // padding in px
+    );
+
+    const viewport = document.querySelector('.react-flow__viewport');
+    if (!viewport) return;
+
+    toPng(viewport, {
+      backgroundColor: '#0f1117',
+      width: imageWidth,
+      height: imageHeight,
+      style: {
+        width: `${imageWidth}px`,
+        height: `${imageHeight}px`,
+        transform: `translate(${transform[0]}px, ${transform[1]}px) scale(${transform[2]})`,
+      },
+    })
+    .then((dataUrl) => {
+      // Step 1: Download the PNG
+      const link = document.createElement('a');
+      link.download = 'flowtensor-pipeline.png';
+      link.href = dataUrl;
+      link.click();
+
+      // Step 2: Copy tweet text to clipboard
+      const tweet = `Just visualized my ML pipeline with FlowTensor 🔥\nCheck it out → https://flowtensor.replit.app\n#DataScience #PyTorch #100DaysOfML`;
+      navigator.clipboard.writeText(tweet).catch(() => {
+        // Clipboard blocked — silently skip, download still works
+      });
+
+      // Step 3: Show success toast
+      showToast('Card downloaded + tweet copied to clipboard 🚀');
+    })
+    .catch((err) => {
+      console.error('Export failed:', err);
+      showToast('Export failed — try zooming out first', 'error');
+    });
+  };
+
+  return exportCard;
+}
+```
+
+--- ADDITIONAL FIXES ---
+
+4. CALL toPng TWICE — html-to-image has a known bug where the first call 
+   misses some styles. Call toPng twice and use the result of the second:
+
+```javascript
+toPng(viewport, options)
+  .then(() => toPng(viewport, options))  // second call for reliability
+  .then((dataUrl) => { /* use dataUrl here */ });
+```
+
+5. ADD A "FIT VIEW" BEFORE EXPORT — Call fitView() 300ms before exporting 
+   to ensure all nodes are in frame:
+
+```javascript
+const { fitView } = useReactFlow();
+
+const handleExport = () => {
+  fitView({ padding: 0.1 });
+  setTimeout(() => exportCard(), 300);
+};
+```
+
+6. HIDE UI CHROME DURING EXPORT — Add a CSS class to the wrapper during 
+   export to temporarily hide the toolbar, buttons, and editor panel, 
+   so the exported card contains ONLY the graph:
+
+```css
+.exporting .react-flow__controls,
+.exporting .react-flow__minimap,
+.exporting .react-flow__panel { display: none !important; }
+```
+
+```javascript
+document.querySelector('.react-flow-wrapper').classList.add('exporting');
+setTimeout(() => {
+  exportCard().finally(() => {
+    document.querySelector('.react-flow-wrapper').classList.remove('exporting');
+  });
+}, 50);
+```
+
+Do not change any other logic. Only touch the export/share functionality.
