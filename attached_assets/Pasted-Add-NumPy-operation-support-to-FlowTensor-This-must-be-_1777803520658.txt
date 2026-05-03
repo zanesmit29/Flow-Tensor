@@ -1,0 +1,162 @@
+Add NumPy operation support to FlowTensor. 
+This must be purely ADDITIVE — do not modify any existing 
+Pandas or PyTorch parsing logic. Only add new code alongside it.
+
+--- BACKEND: ADD NUMPY DETECTION ---
+
+In the AST parser, add a new separate function:
+def parse_numpy_nodes(tree, source_lines):
+    """Detects NumPy operations. Called separately, never replaces existing parsers."""
+    nodes = []
+    # ... numpy-specific logic here
+    return nodes
+
+In the main /parse endpoint, AFTER existing parsing runs:
+
+existing_nodes = parse_pandas_nodes(tree, source_lines) \
+               + parse_pytorch_nodes(tree, source_lines)
+
+# Additive: append numpy nodes if numpy is detected
+if is_numpy_code(tree):
+    existing_nodes += parse_numpy_nodes(tree, source_lines)
+
+return existing_nodes
+
+The is_numpy_code(tree) check looks for:
+- import numpy as np
+- from numpy import ...
+- Any attribute access on "np" (ast.Attribute where value.id == "np")
+
+--- NUMPY OPERATION CATEGORIES ---
+
+Map these NumPy ops to existing node types 
+(reuse existing shape/color system — no new node types needed):
+
+TRANSFORM (blue parallelogram) — shape-changing ops:
+  np.reshape, np.resize, np.transpose, np.squeeze, 
+  np.expand_dims, np.flatten, np.ravel
+  Shape annotation: show before/after shape if inferrable
+
+AGGREGATE (purple hexagon) — reduction ops:  
+  np.sum, np.mean, np.std, np.var, np.min, np.max,
+  np.argmin, np.argmax, np.median, np.percentile
+
+FILTER (coral trapezoid) — masking/selection:
+  np.where, np.clip, np.nonzero, np.extract,
+  boolean indexing patterns (arr[arr > 0])
+
+DATA SOURCE (green cylinder) — array creation:
+  np.array, np.zeros, np.ones, np.zeros_like, 
+  np.ones_like, np.arange, np.linspace, np.random.rand,
+  np.random.randn, np.random.randint, np.load, np.loadtxt
+
+TRANSFORM — math/linear algebra:
+  np.dot, np.matmul, np.linalg.norm, np.linalg.inv,
+  np.linalg.eig, np.cross, np.outer, np.inner,
+  np.exp, np.log, np.sqrt, np.abs, np.power
+
+MERGE (gold diamond) — combining arrays:
+  np.concatenate, np.stack, np.vstack, np.hstack,
+  np.dstack, np.block, np.append
+
+OUTPUT (orange pill) — saving/exporting:
+  np.save, np.savez, np.savetxt, np.set_printoptions
+
+--- SHAPE INFERENCE FOR NUMPY ---
+
+For np.reshape(arr, (x, y)):
+  Extract the target shape tuple from the AST args
+  Annotate as: "→ shape (x, y)"
+
+For np.zeros((m, n)) / np.ones((m, n)):
+  Extract shape tuple → annotate as: "shape: (m, n)"
+
+For np.concatenate([a, b], axis=0):
+  Annotate axis: "axis=0 (rows)"  or  "axis=1 (cols)"
+
+For np.transpose(arr):
+  Annotate: "axes reversed"
+
+Keep shape inference simple — only extract literal values,
+never evaluate variables. If shape can't be determined, 
+show "shape: dynamic".
+
+--- NUMPY PLAIN-ENGLISH TOOLTIPS ---
+
+Add these to the existing tooltip lookup table:
+
+np.reshape → "Rearranges the array into a new shape without changing its data. Total elements must stay the same."
+np.transpose → "Flips the axes of the array — rows become columns and vice versa."
+np.concatenate → "Joins multiple arrays together along a specified axis."
+np.where → "Returns elements from one array or another based on a condition — like a vectorized if/else."
+np.dot → "Computes the dot product — for 2D arrays this is matrix multiplication."
+np.zeros → "Creates a new array filled with zeros, useful for initializing weights or masks."
+np.ones → "Creates a new array filled with ones."
+np.arange → "Creates an evenly spaced sequence of numbers, like Python's range() but returns an array."
+np.linspace → "Creates evenly spaced numbers over a specified interval — useful for plotting."
+np.mean → "Computes the average value across the array or along an axis."
+np.std → "Computes the standard deviation — measures how spread out the values are."
+np.clip → "Constrains all values to stay within [min, max] — useful for gradient clipping."
+np.linalg.norm → "Computes the magnitude (length) of a vector or matrix norm."
+np.random.rand → "Generates random numbers from a uniform distribution between 0 and 1."
+np.random.randn → "Generates random numbers from a standard normal distribution (mean=0, std=1)."
+
+--- DETECTION BADGE ---
+
+The existing "Pandas Detected" / "Pytorch Detected" badge 
+in the bottom-right already handles library detection.
+
+Add "NumPy Detected" (color: #f59e0b — amber) to the same 
+badge system. It can show alongside Pandas or PyTorch:
+"Pandas + NumPy Detected" if both are found.
+
+Do not change the badge component logic — 
+only add the NumPy detection case to the existing if/else chain.
+
+--- EXAMPLE TO TEST WITH ---
+
+After implementing, test with this snippet:
+
+import numpy as np
+
+# Create data
+X = np.random.randn(1000, 20)
+y = np.random.randint(0, 2, size=(1000,))
+
+# Normalize
+X_mean = np.mean(X, axis=0)
+X_std = np.std(X, axis=0)
+X_norm = (X - X_mean) / np.clip(X_std, 1e-8, None)
+
+# Reshape for model input
+X_reshaped = np.reshape(X_norm, (1000, 4, 5))
+
+# Split
+split = int(0.8 * len(X_reshaped))
+X_train = X_reshaped[:split]
+X_test = X_reshaped[split:]
+
+# Stack labels
+y_onehot = np.zeros((len(y), 2))
+y_onehot[np.arange(len(y)), y] = 1
+
+# Save
+np.save("X_train.npy", X_train)
+np.save("y_onehot.npy", y_onehot)
+
+Expected output: 15+ nodes covering all major categories —
+DATA SOURCE (randn, randint), AGGREGATE (mean, std), 
+TRANSFORM (clip, reshape), FILTER (slicing), 
+MERGE (zeros + indexing), OUTPUT (save).
+
+--- STRICT CONSTRAINT ---
+
+Do NOT touch:
+- parse_pandas_nodes() or any Pandas logic
+- parse_pytorch_nodes() or any PyTorch logic  
+- Any existing node type definitions
+- Any existing frontend components
+- The /parse endpoint signature or response format
+
+Only ADD new code. If in doubt, add a new function rather 
+than modifying an existing one.
