@@ -1,0 +1,102 @@
+Add a GitHub Gist import feature to FlowTensor. 
+Users paste a Gist URL and the app fetches and visualizes it instantly.
+No OAuth, no authentication required — public Gists only.
+
+--- UI: IMPORT BAR ---
+
+Add a second input mode above the code editor, toggled by two tabs:
+
+[📝 Paste Code]  [🔗 Import from Gist]
+
+Style the tabs as pill toggles, same dark theme as the rest of the app.
+Default active tab: "Paste Code" (existing behavior unchanged).
+
+When "Import from Gist" tab is active:
+- Hide the code editor
+- Show a single full-width input field:
+  Placeholder: "Paste a GitHub Gist URL... (e.g. gist.github.com/user/abc123)"
+  + A "Fetch & Visualize →" button (same gradient style as main CTA)
+
+--- BACKEND: GIST FETCHING ---
+
+Add a new POST /fetch-gist endpoint to the FastAPI backend:
+
+Request body: { "url": "https://gist.github.com/username/abc123" }
+
+Logic:
+1. Extract the Gist ID from the URL using regex
+   (handle formats: gist.github.com/user/ID and gist.github.com/ID)
+
+2. Call the GitHub Gist API (no auth needed for public gists):
+   GET https://api.github.com/gists/{gist_id}
+
+3. From the response, extract all .py files:
+   response.files → filter by filename ending in .py
+
+4. If multiple .py files exist, return a list for the user to choose from.
+   If only one .py file, auto-select it.
+
+5. Return the raw file content as { "code": "...", "filename": "..." }
+
+Error handling:
+- Invalid URL format → { "error": "Invalid Gist URL" }
+- Gist not found (404) → { "error": "Gist not found or is private" }
+- No .py files → { "error": "No Python files found in this Gist" }
+- GitHub API rate limit (403) → { "error": "GitHub rate limit reached, try again in a minute" }
+
+--- FRONTEND: FETCH FLOW ---
+
+When "Fetch & Visualize →" is clicked:
+
+1. Show a loading state on the button: 
+   "Fetching..." with a spinner icon
+
+2. Call POST /fetch-gist with the URL
+
+3. On success with one file:
+   - Switch back to "Paste Code" tab
+   - Populate the code editor with the fetched code
+   - Show a small toast: "Loaded from Gist: {filename} ✓"
+   - Auto-trigger the Visualize button after 400ms
+
+4. On success with multiple .py files:
+   - Show a small dropdown modal listing all .py filenames
+   - User selects one → fetch that file's content → proceed as above
+   - Style the modal as a floating card, same dark theme
+
+5. On error:
+   - Show the error message as a red toast notification
+   - Keep the URL in the input field so user can fix it
+
+--- SUPPORTED GIST URL FORMATS ---
+
+Handle all these formats correctly:
+- https://gist.github.com/username/abc123def456
+- https://gist.github.com/abc123def456
+- http://gist.github.com/username/abc123def456
+- gist.github.com/username/abc123def456 (no protocol)
+
+--- FILE SELECTOR (MULTI-FILE GISTS) ---
+
+If the Gist has multiple .py files, show a clean picker:
+
+┌─────────────────────────────────┐
+│  📦 3 Python files found        │
+│  ─────────────────────────────  │
+│  ▶ model.py          (2.1 KB)   │
+│    dataset.py        (1.4 KB)   │
+│    train.py          (3.2 KB)   │
+└─────────────────────────────────┘
+
+Show file size from the Gist API response.
+Highlight the largest file as the default selection.
+
+--- LANDING PAGE UPDATE ---
+
+On the landing page, add one line below the subheadline:
+"Or import directly from a GitHub Gist →"
+Styled as a small underlined link, muted color.
+On click: navigate to #app and auto-activate the "Import from Gist" tab.
+
+Do not change any existing parsing or visualization logic.
+Only add the new tab UI, /fetch-gist endpoint, and fetch flow.
