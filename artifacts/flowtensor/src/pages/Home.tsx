@@ -88,21 +88,19 @@ for epoch in range(10):
 `;
 
 export default function Home() {
+  const initialGithub =
+    typeof window !== 'undefined' && window.location.hash.includes('github');
   const [code, setCode] = useState(DEFAULT_CODE);
-  const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [isPanelOpen, setIsPanelOpen] = useState(!initialGithub);
   const [isTyping, setIsTyping] = useState(false);
   const [hasVisualized, setHasVisualized] = useState(false);
-  const [mode, setMode] = useState<InputMode>(() => {
-    if (typeof window !== 'undefined' && window.location.hash.includes('github')) {
-      return 'github';
-    }
-    return 'paste';
-  });
+  const [mode, setMode] = useState<InputMode>(initialGithub ? 'github' : 'paste');
 
   useEffect(() => {
     const onHash = () => {
       if (window.location.hash.includes('github')) {
         setMode('github');
+        setIsPanelOpen(false);
       }
     };
     window.addEventListener('hashchange', onHash);
