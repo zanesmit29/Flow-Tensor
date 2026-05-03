@@ -8,10 +8,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Play, Sparkles } from 'lucide-react';
 import GraphCanvas from '@/components/flow/GraphCanvas';
 import ExamplesPanel from '@/components/ExamplesPanel';
-import GistImport from '@/components/GistImport';
+import GitHubImport from '@/components/GitHubImport';
 import { type Example } from '@/data/examples';
 
-type InputMode = 'paste' | 'gist';
+type InputMode = 'paste' | 'github';
 
 const DEFAULT_CODE = `import pandas as pd
 import torch
@@ -93,16 +93,16 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false);
   const [hasVisualized, setHasVisualized] = useState(false);
   const [mode, setMode] = useState<InputMode>(() => {
-    if (typeof window !== 'undefined' && window.location.hash.includes('gist')) {
-      return 'gist';
+    if (typeof window !== 'undefined' && window.location.hash.includes('github')) {
+      return 'github';
     }
     return 'paste';
   });
 
   useEffect(() => {
     const onHash = () => {
-      if (window.location.hash.includes('gist')) {
-        setMode('gist');
+      if (window.location.hash.includes('github')) {
+        setMode('github');
       }
     };
     window.addEventListener('hashchange', onHash);
@@ -265,14 +265,14 @@ export default function Home() {
           </button>
           <button
             type="button"
-            onClick={() => setMode('gist')}
+            onClick={() => setMode('github')}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border ${
-              mode === 'gist'
+              mode === 'github'
                 ? 'bg-white/10 border-white/20 text-white'
                 : 'bg-transparent border-white/5 text-white/50 hover:text-white/80 hover:bg-white/5'
             }`}
           >
-            🔗 Import from Gist
+            🐙 Import from GitHub
           </button>
         </div>
 
@@ -310,7 +310,7 @@ export default function Home() {
             />
           </div>
         ) : (
-          <GistImport
+          <GitHubImport
             onLoaded={(_filename, loadedCode) => {
               setMode('paste');
               setCode(loadedCode);
@@ -324,7 +324,7 @@ export default function Home() {
         )}
 
         {/* Visualize button */}
-        <div className={`p-6 bg-[#0f1117] border-t border-white/10 relative z-20 ${mode === 'gist' ? 'hidden' : ''}`}>
+        <div className={`p-6 bg-[#0f1117] border-t border-white/10 relative z-20 ${mode === 'github' ? 'hidden' : ''}`}>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}

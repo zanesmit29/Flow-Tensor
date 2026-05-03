@@ -17,12 +17,14 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
-  FetchGistRequest,
-  GistResult,
+  FetchFileRequest,
+  FetchRepoRequest,
   HealthStatus,
   ParseError,
   ParseRequest,
   ParseResponse,
+  RepoBrowseResult,
+  RepoFileResult,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -198,43 +200,43 @@ export const useParseCode = <
 };
 
 /**
- * Accepts a Gist URL, fetches the public Gist via the GitHub API, and returns its Python file(s).
- * @summary Fetch a public GitHub Gist and return its Python files
+ * Accepts a GitHub repository URL, fetches repo metadata and recursively lists Python files (up to 3 levels deep).
+ * @summary Browse a public GitHub repository for Python files
  */
-export const getFetchGistUrl = () => {
-  return `/api/fetch-gist`;
+export const getFetchRepoUrl = () => {
+  return `/api/fetch-repo`;
 };
 
-export const fetchGist = async (
-  fetchGistRequest: FetchGistRequest,
+export const fetchRepo = async (
+  fetchRepoRequest: FetchRepoRequest,
   options?: RequestInit,
-): Promise<GistResult> => {
-  return customFetch<GistResult>(getFetchGistUrl(), {
+): Promise<RepoBrowseResult> => {
+  return customFetch<RepoBrowseResult>(getFetchRepoUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(fetchGistRequest),
+    body: JSON.stringify(fetchRepoRequest),
   });
 };
 
-export const getFetchGistMutationOptions = <
+export const getFetchRepoMutationOptions = <
   TError = ErrorType<ParseError>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof fetchGist>>,
+    Awaited<ReturnType<typeof fetchRepo>>,
     TError,
-    { data: BodyType<FetchGistRequest> },
+    { data: BodyType<FetchRepoRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof fetchGist>>,
+  Awaited<ReturnType<typeof fetchRepo>>,
   TError,
-  { data: BodyType<FetchGistRequest> },
+  { data: BodyType<FetchRepoRequest> },
   TContext
 > => {
-  const mutationKey = ["fetchGist"];
+  const mutationKey = ["fetchRepo"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -244,42 +246,129 @@ export const getFetchGistMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof fetchGist>>,
-    { data: BodyType<FetchGistRequest> }
+    Awaited<ReturnType<typeof fetchRepo>>,
+    { data: BodyType<FetchRepoRequest> }
   > = (props) => {
     const { data } = props ?? {};
 
-    return fetchGist(data, requestOptions);
+    return fetchRepo(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type FetchGistMutationResult = NonNullable<
-  Awaited<ReturnType<typeof fetchGist>>
+export type FetchRepoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof fetchRepo>>
 >;
-export type FetchGistMutationBody = BodyType<FetchGistRequest>;
-export type FetchGistMutationError = ErrorType<ParseError>;
+export type FetchRepoMutationBody = BodyType<FetchRepoRequest>;
+export type FetchRepoMutationError = ErrorType<ParseError>;
 
 /**
- * @summary Fetch a public GitHub Gist and return its Python files
+ * @summary Browse a public GitHub repository for Python files
  */
-export const useFetchGist = <
+export const useFetchRepo = <
   TError = ErrorType<ParseError>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof fetchGist>>,
+    Awaited<ReturnType<typeof fetchRepo>>,
     TError,
-    { data: BodyType<FetchGistRequest> },
+    { data: BodyType<FetchRepoRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof fetchGist>>,
+  Awaited<ReturnType<typeof fetchRepo>>,
   TError,
-  { data: BodyType<FetchGistRequest> },
+  { data: BodyType<FetchRepoRequest> },
   TContext
 > => {
-  return useMutation(getFetchGistMutationOptions(options));
+  return useMutation(getFetchRepoMutationOptions(options));
+};
+
+/**
+ * Accepts owner, repo, and path, returns the decoded file contents.
+ * @summary Fetch a single file from a public GitHub repository
+ */
+export const getFetchFileUrl = () => {
+  return `/api/fetch-file`;
+};
+
+export const fetchFile = async (
+  fetchFileRequest: FetchFileRequest,
+  options?: RequestInit,
+): Promise<RepoFileResult> => {
+  return customFetch<RepoFileResult>(getFetchFileUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(fetchFileRequest),
+  });
+};
+
+export const getFetchFileMutationOptions = <
+  TError = ErrorType<ParseError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof fetchFile>>,
+    TError,
+    { data: BodyType<FetchFileRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof fetchFile>>,
+  TError,
+  { data: BodyType<FetchFileRequest> },
+  TContext
+> => {
+  const mutationKey = ["fetchFile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof fetchFile>>,
+    { data: BodyType<FetchFileRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return fetchFile(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FetchFileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof fetchFile>>
+>;
+export type FetchFileMutationBody = BodyType<FetchFileRequest>;
+export type FetchFileMutationError = ErrorType<ParseError>;
+
+/**
+ * @summary Fetch a single file from a public GitHub repository
+ */
+export const useFetchFile = <
+  TError = ErrorType<ParseError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof fetchFile>>,
+    TError,
+    { data: BodyType<FetchFileRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof fetchFile>>,
+  TError,
+  { data: BodyType<FetchFileRequest> },
+  TContext
+> => {
+  return useMutation(getFetchFileMutationOptions(options));
 };

@@ -1,0 +1,66 @@
+Remove the Gist import feature entirely and replace it with a 
+clean GitHub Repository import flow. This should feel like a 
+first-class feature, not an afterthought.
+
+--- REMOVE ---
+- All /fetch-gist endpoint code
+- All Gist URL detection logic
+- Any mention of "Gist" in the UI
+
+--- UI: IMPORT TAB ---
+
+The two tabs become:
+[📝 Paste Code]  [🐙 Import from GitHub]
+
+When "Import from GitHub" is active, show:
+
+A clean two-step flow:
+
+STEP 1 — REPO INPUT:
+Full-width input field:
+  Placeholder: "github.com/username/repository"
+  + "Browse Repo →" button (outlined style, not gradient yet)
+
+STEP 2 — FILE PICKER (appears after repo is fetched):
+  A scrollable file list (max height 240px) showing all .py files found.
+  Each row: [file icon] filename.py · /folder/path · 2.3 KB
+  Selected row: highlighted with accent border
+  + "Visualize Selected File →" button (gradient CTA, appears after selection)
+
+This two-step flow makes it feel deliberate and professional.
+
+--- BACKEND: /fetch-repo ENDPOINT ---
+
+POST /fetch-repo
+Request: { "url": "https://github.com/username/repo" }
+
+STEP 1 — Get file list:
+1. Extract owner + repo from URL with regex
+   Handle: github.com/owner/repo, with or without https://, 
+   with or without trailing slash
+   
+2. Fetch repo contents recursively (max 3 levels deep):
+   GET https://api.github.com/repos/{owner}/{repo}/contents/{path}
+   
+3. Filter to .py files only
+   Exclude: __pycache__/, venv/, .venv/, migrations/, 
+            test_*.py, *_test.py, setup.py, conftest.py
+   
+4. Return sorted file list:
+   [ { "name": "train.py", "path": "src/train.py", "size": 3200 } ]
+   Sort: largest file first (most likely the main entry point)
+
+5. Also check for a README to extract the repo description:
+   GET https://api.github.com/repos/{owner}/{repo}
+   Return: repo name, description, star count, language
+
+POST /fetch-file  
+Request: { "owner": "...", "repo": "...", "path": "..." }
+
+1. GET https://api.github.com/repos/{owner}/{repo}/contents/{path}
+2. base64 decode the "content" field
+3. Return: { "code": "...", "filename": "..." }
+
+--- REPO HEADER ---
+
+After a repo is fetched, show a small repo 

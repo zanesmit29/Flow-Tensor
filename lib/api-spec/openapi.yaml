@@ -51,27 +51,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ParseError"
-  /fetch-gist:
+  /fetch-repo:
     post:
-      operationId: fetchGist
+      operationId: fetchRepo
       tags: [parse]
-      summary: Fetch a public GitHub Gist and return its Python files
-      description: Accepts a Gist URL, fetches the public Gist via the GitHub API, and returns its Python file(s).
+      summary: Browse a public GitHub repository for Python files
+      description: Accepts a GitHub repository URL, fetches repo metadata and recursively lists Python files (up to 3 levels deep).
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/FetchGistRequest"
+              $ref: "#/components/schemas/FetchRepoRequest"
       responses:
         "200":
-          description: Gist fetched successfully
+          description: Repository browsed successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GistResult"
+                $ref: "#/components/schemas/RepoBrowseResult"
         "422":
-          description: Could not fetch the Gist
+          description: Could not browse the repository
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParseError"
+  /fetch-file:
+    post:
+      operationId: fetchFile
+      tags: [parse]
+      summary: Fetch a single file from a public GitHub repository
+      description: Accepts owner, repo, and path, returns the decoded file contents.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FetchFileRequest"
+      responses:
+        "200":
+          description: File fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepoFileResult"
+        "422":
+          description: Could not fetch the file
           content:
             application/json:
               schema:
@@ -171,46 +196,90 @@ components:
         - nodes
         - edges
         - framework
-    FetchGistRequest:
+    FetchRepoRequest:
       type: object
       properties:
         url:
           type: string
-          description: A public GitHub Gist URL
+          description: A public GitHub repository URL (e.g. github.com/owner/repo)
       required:
         - url
-    GistFile:
+    RepoFile:
       type: object
       properties:
-        filename:
+        name:
           type: string
+          description: Filename without folder path
+        path:
+          type: string
+          description: Path relative to repo root
         size:
           type: integer
           description: File size in bytes
       required:
-        - filename
+        - name
+        - path
         - size
-    GistResult:
+    RepoInfo:
+      type: object
+      properties:
+        owner:
+          type: string
+        repo:
+          type: string
+        name:
+          type: string
+          description: Repository name as reported by GitHub
+        description:
+          type: string
+          nullable: true
+        stars:
+          type: integer
+        language:
+          type: string
+          nullable: true
+      required:
+        - owner
+        - repo
+        - name
+        - description
+        - stars
+        - language
+    RepoBrowseResult:
+      type: object
+      properties:
+        info:
+          $ref: "#/components/schemas/RepoInfo"
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepoFile"
+      required:
+        - info
+        - files
+    FetchFileRequest:
+      type: object
+      properties:
+        owner:
+          type: string
+        repo:
+          type: string
+        path:
+          type: string
+      required:
+        - owner
+        - repo
+        - path
+    RepoFileResult:
       type: object
       properties:
         code:
           type: string
-          description: Raw file content. Present when a single .py file is auto-selected.
-          nullable: true
         filename:
           type: string
-          description: Filename of the auto-selected file. Present alongside `code`.
-          nullable: true
-        files:
-          type: array
-          description: List of .py files when multiple are present and the user must choose.
-          nullable: true
-          items:
-            $ref: "#/components/schemas/GistFile"
       required:
         - code
         - filename
-        - files
     ParseError:
       type: object
       properties:

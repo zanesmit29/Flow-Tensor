@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface FetchGistRequest {
-  /** A public GitHub Gist URL */
+export interface FetchRepoRequest {
+  /** A public GitHub repository URL (e.g. github.com/owner/repo) */
   url: string;
 }

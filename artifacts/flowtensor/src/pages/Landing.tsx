@@ -129,11 +129,11 @@ export default function Landing({ onGetStarted }: LandingProps) {
           <button
             type="button"
             onClick={() => {
-              window.location.hash = 'app-gist';
+              window.location.hash = 'app-github';
             }}
             className="text-xs text-white/40 hover:text-white/70 underline underline-offset-4 decoration-white/20 hover:decoration-white/50 transition-colors"
           >
-            Or import directly from a GitHub Gist →
+            Or import directly from a GitHub repository →
           </button>
         </motion.div>
 

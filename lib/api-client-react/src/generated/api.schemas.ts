@@ -77,24 +77,44 @@ export interface ParseResponse {
   framework: ParseResponseFramework;
 }
 
-export interface FetchGistRequest {
-  /** A public GitHub Gist URL */
+export interface FetchRepoRequest {
+  /** A public GitHub repository URL (e.g. github.com/owner/repo) */
   url: string;
 }
 
-export interface GistFile {
-  filename: string;
+export interface RepoFile {
+  /** Filename without folder path */
+  name: string;
+  /** Path relative to repo root */
+  path: string;
   /** File size in bytes */
   size: number;
 }
 
-export interface GistResult {
-  /** Raw file content. Present when a single .py file is auto-selected. */
-  code: string | null;
-  /** Filename of the auto-selected file. Present alongside `code`. */
-  filename: string | null;
-  /** List of .py files when multiple are present and the user must choose. */
-  files: GistFile[] | null;
+export interface RepoInfo {
+  owner: string;
+  repo: string;
+  /** Repository name as reported by GitHub */
+  name: string;
+  description: string | null;
+  stars: number;
+  language: string | null;
+}
+
+export interface RepoBrowseResult {
+  info: RepoInfo;
+  files: RepoFile[];
+}
+
+export interface FetchFileRequest {
+  owner: string;
+  repo: string;
+  path: string;
+}
+
+export interface RepoFileResult {
+  code: string;
+  filename: string;
 }
 
 export interface ParseError {

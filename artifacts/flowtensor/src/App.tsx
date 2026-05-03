@@ -20,7 +20,7 @@ function AppRoutes() {
 }
 
 function HashGate() {
-  const isAppHash = (h: string) => h === "#app" || h === "#app-gist";
+  const isAppHash = (h: string) => h === "#app" || h === "#app-github";
   const [showApp, setShowApp] = useState(() =>
     typeof window !== "undefined" && isAppHash(window.location.hash)
   );

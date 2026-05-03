@@ -6,14 +6,17 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export * from "./fetchGistRequest";
+export * from "./fetchFileRequest";
+export * from "./fetchRepoRequest";
 export * from "./flowEdge";
 export * from "./flowNode";
 export * from "./flowNodeType";
-export * from "./gistFile";
-export * from "./gistResult";
 export * from "./healthStatus";
 export * from "./parseError";
 export * from "./parseRequest";
 export * from "./parseResponse";
 export * from "./parseResponseFramework";
+export * from "./repoBrowseResult";
+export * from "./repoFile";
+export * from "./repoFileResult";
+export * from "./repoInfo";

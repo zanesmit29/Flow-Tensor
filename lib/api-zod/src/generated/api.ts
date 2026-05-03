@@ -77,33 +77,44 @@ export const ParseCodeResponse = zod.object({
 });
 
 /**
- * Accepts a Gist URL, fetches the public Gist via the GitHub API, and returns its Python file(s).
- * @summary Fetch a public GitHub Gist and return its Python files
+ * Accepts a GitHub repository URL, fetches repo metadata and recursively lists Python files (up to 3 levels deep).
+ * @summary Browse a public GitHub repository for Python files
  */
-export const FetchGistBody = zod.object({
-  url: zod.string().describe("A public GitHub Gist URL"),
+export const FetchRepoBody = zod.object({
+  url: zod
+    .string()
+    .describe("A public GitHub repository URL (e.g. github.com\/owner\/repo)"),
 });
 
-export const FetchGistResponse = zod.object({
-  code: zod
-    .string()
-    .nullable()
-    .describe(
-      "Raw file content. Present when a single .py file is auto-selected.",
-    ),
-  filename: zod
-    .string()
-    .nullable()
-    .describe("Filename of the auto-selected file. Present alongside `code`."),
-  files: zod
-    .array(
-      zod.object({
-        filename: zod.string(),
-        size: zod.number().describe("File size in bytes"),
-      }),
-    )
-    .nullable()
-    .describe(
-      "List of .py files when multiple are present and the user must choose.",
-    ),
+export const FetchRepoResponse = zod.object({
+  info: zod.object({
+    owner: zod.string(),
+    repo: zod.string(),
+    name: zod.string().describe("Repository name as reported by GitHub"),
+    description: zod.string().nullable(),
+    stars: zod.number(),
+    language: zod.string().nullable(),
+  }),
+  files: zod.array(
+    zod.object({
+      name: zod.string().describe("Filename without folder path"),
+      path: zod.string().describe("Path relative to repo root"),
+      size: zod.number().describe("File size in bytes"),
+    }),
+  ),
+});
+
+/**
+ * Accepts owner, repo, and path, returns the decoded file contents.
+ * @summary Fetch a single file from a public GitHub repository
+ */
+export const FetchFileBody = zod.object({
+  owner: zod.string(),
+  repo: zod.string(),
+  path: zod.string(),
+});
+
+export const FetchFileResponse = zod.object({
+  code: zod.string(),
+  filename: zod.string(),
 });

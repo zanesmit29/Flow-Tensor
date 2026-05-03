@@ -6,8 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface GistFile {
-  filename: string;
-  /** File size in bytes */
-  size: number;
+export interface FetchFileRequest {
+  owner: string;
+  repo: string;
+  path: string;
 }

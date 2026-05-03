@@ -1,5 +1,7 @@
 import os
 import re
+import base64
+import urllib.parse
 import urllib.request
 import urllib.error
 import json
@@ -24,20 +26,85 @@ class ParseRequest(BaseModel):
     code: str
 
 
-class FetchGistRequest(BaseModel):
+class FetchRepoRequest(BaseModel):
     url: str
 
 
-GIST_ID_RE = re.compile(
-    r"^(?:https?://)?gist\.github\.com/(?:[^/\s]+/)?([0-9a-fA-F]+)/?(?:#.*)?$"
+class FetchFileRequest(BaseModel):
+    owner: str
+    repo: str
+    path: str
+
+
+REPO_URL_RE = re.compile(
+    r"^(?:https?://)?(?:www\.)?github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?(?:[?#].*)?$"
 )
 
+EXCLUDED_DIRS = {"__pycache__", "venv", ".venv", "migrations", "node_modules", ".git"}
+EXCLUDED_FILES = {"setup.py", "conftest.py"}
+MAX_DEPTH = 3
 
-def _gist_error(message: str, status_code: int = 422):
+
+def _err(message: str, status_code: int = 422):
     return JSONResponse(
         status_code=status_code,
         content={"error": message, "detail": None},
     )
+
+
+def _gh_get(url: str):
+    """GET a GitHub API URL. Returns (status, json_or_text)."""
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "FlowTensor",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=15) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _is_excluded_file(name: str) -> bool:
+    if not name.lower().endswith(".py"):
+        return True
+    if name in EXCLUDED_FILES:
+        return True
+    if name.startswith("test_") and name.endswith(".py"):
+        return True
+    if name.endswith("_test.py"):
+        return True
+    return False
+
+
+def _walk_repo(owner: str, repo: str, path: str, depth: int, out: list) -> None:
+    if depth > MAX_DEPTH:
+        return
+    encoded = urllib.parse.quote(path)
+    contents_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{encoded}"
+    items = _gh_get(contents_url)
+    if not isinstance(items, list):
+        return
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_type = item.get("type")
+        name = item.get("name") or ""
+        item_path = item.get("path") or name
+        if item_type == "dir":
+            if name in EXCLUDED_DIRS or name.startswith("."):
+                continue
+            _walk_repo(owner, repo, item_path, depth + 1, out)
+        elif item_type == "file":
+            if _is_excluded_file(name):
+                continue
+            out.append(
+                {
+                    "name": name,
+                    "path": item_path,
+                    "size": int(item.get("size") or 0),
+                }
+            )
 
 
 @app.get("/api/healthz")
@@ -67,70 +134,117 @@ def parse_code(req: ParseRequest):
         )
 
 
-@app.post("/api/fetch-gist")
-def fetch_gist(req: FetchGistRequest):
+def _parse_repo_url(raw_url: str):
+    match = REPO_URL_RE.match(raw_url)
+    if not match:
+        return None
+    owner, repo = match.group(1), match.group(2)
+    if repo.endswith(".git"):
+        repo = repo[:-4]
+    return owner, repo
+
+
+@app.post("/api/fetch-repo")
+def fetch_repo(req: FetchRepoRequest):
     raw_url = (req.url or "").strip()
     if not raw_url:
-        return _gist_error("Invalid Gist URL")
+        return _err("Invalid GitHub repository URL")
 
-    match = GIST_ID_RE.match(raw_url)
-    if not match:
-        return _gist_error("Invalid Gist URL")
-
-    gist_id = match.group(1)
-    api_url = f"https://api.github.com/gists/{gist_id}"
+    parsed = _parse_repo_url(raw_url)
+    if not parsed:
+        return _err("Invalid GitHub repository URL")
+    owner, repo = parsed
 
     try:
-        request = urllib.request.Request(
-            api_url,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "User-Agent": "FlowTensor",
-            },
-        )
-        with urllib.request.urlopen(request, timeout=15) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        meta = _gh_get(f"https://api.github.com/repos/{owner}/{repo}")
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            return _gist_error("Gist not found or is private")
+            return _err("Repository not found or is private")
         if e.code == 403:
-            return _gist_error("GitHub rate limit reached, try again in a minute")
-        return _gist_error("Could not fetch Gist from GitHub")
+            return _err("GitHub rate limit reached, try again in a minute")
+        return _err("Could not fetch repository from GitHub")
     except urllib.error.URLError:
-        return _gist_error("Could not reach GitHub. Check your connection and try again.")
+        return _err("Could not reach GitHub. Check your connection and try again.")
     except Exception:
-        return _gist_error("Could not fetch Gist from GitHub")
+        return _err("Could not fetch repository from GitHub")
 
-    files = data.get("files") or {}
-    if not isinstance(files, dict):
-        return _gist_error("Unexpected response from GitHub")
-    py_files = [
-        (name, meta)
-        for name, meta in files.items()
-        if isinstance(name, str) and name.lower().endswith(".py") and isinstance(meta, dict)
-    ]
+    files: list = []
+    try:
+        _walk_repo(owner, repo, "", 0, files)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return _err("Repository contents not found")
+        if e.code == 403:
+            return _err("GitHub rate limit reached, try again in a minute")
+        return _err("Could not list repository files")
+    except urllib.error.URLError:
+        return _err("Could not reach GitHub. Check your connection and try again.")
+    except Exception:
+        return _err("Could not list repository files")
 
-    if not py_files:
-        return _gist_error("No Python files found in this Gist")
+    if not files:
+        return _err("No Python files found in this repository")
 
-    if len(py_files) == 1:
-        name, meta = py_files[0]
-        content = meta.get("content")
-        if content is None:
-            # Truncated content — fetch raw
-            raw = meta.get("raw_url")
-            if raw:
-                try:
-                    with urllib.request.urlopen(raw, timeout=15) as r:
-                        content = r.read().decode("utf-8")
-                except Exception:
-                    return _gist_error("Could not download Gist file content")
-            else:
-                return _gist_error("Could not download Gist file content")
-        return {"code": content, "filename": name, "files": None}
+    files.sort(key=lambda f: f.get("size", 0), reverse=True)
 
-    file_list = [
-        {"filename": name, "size": int(meta.get("size") or 0)}
-        for name, meta in py_files
-    ]
-    return {"code": None, "filename": None, "files": file_list}
+    info = {
+        "owner": owner,
+        "repo": repo,
+        "name": meta.get("name") or repo,
+        "description": meta.get("description"),
+        "stars": int(meta.get("stargazers_count") or 0),
+        "language": meta.get("language"),
+    }
+    return {"info": info, "files": files}
+
+
+@app.post("/api/fetch-file")
+def fetch_file(req: FetchFileRequest):
+    owner = (req.owner or "").strip()
+    repo = (req.repo or "").strip()
+    path = (req.path or "").strip().lstrip("/")
+    if not owner or not repo or not path:
+        return _err("Missing owner, repo, or path")
+    # Defensive: prevent path traversal
+    if ".." in path.split("/"):
+        return _err("Invalid file path")
+
+    encoded = urllib.parse.quote(path)
+    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{encoded}"
+    try:
+        data = _gh_get(api_url)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return _err("File not found")
+        if e.code == 403:
+            return _err("GitHub rate limit reached, try again in a minute")
+        return _err("Could not fetch file from GitHub")
+    except urllib.error.URLError:
+        return _err("Could not reach GitHub. Check your connection and try again.")
+    except Exception:
+        return _err("Could not fetch file from GitHub")
+
+    if not isinstance(data, dict) or data.get("type") != "file":
+        return _err("Path does not point to a file")
+
+    encoding = data.get("encoding")
+    raw_content = data.get("content") or ""
+    content: str
+    if encoding == "base64":
+        try:
+            content = base64.b64decode(raw_content).decode("utf-8")
+        except Exception:
+            return _err("Could not decode file content")
+    else:
+        # Large files require fetching via download_url
+        download_url = data.get("download_url")
+        if not download_url:
+            return _err("Could not download file content")
+        try:
+            with urllib.request.urlopen(download_url, timeout=15) as r:
+                content = r.read().decode("utf-8")
+        except Exception:
+            return _err("Could not download file content")
+
+    filename = path.rsplit("/", 1)[-1]
+    return {"code": content, "filename": filename}
