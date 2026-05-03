@@ -74,6 +74,116 @@ export const ParseCodeResponse = zod.object({
   framework: zod
     .enum(["pandas", "pytorch", "mixed", "unknown"])
     .describe("Detected framework in the code"),
+  level: zod
+    .number()
+    .describe("Default visualization level (1 = architecture view)"),
+  blocks: zod
+    .array(
+      zod
+        .object({
+          id: zod.string(),
+          type: zod.enum(["class", "function", "module"]),
+          name: zod.string(),
+          summary: zod
+            .string()
+            .describe("Auto-generated summary line shown under the title"),
+          color: zod.enum(["blue", "purple", "green", "red"]),
+          category: zod.enum(["data", "model", "generic", "training", "main"]),
+          bases: zod.array(zod.string()),
+          attributes: zod.array(zod.string()),
+          op_count: zod.number(),
+          position_x: zod.number(),
+          position_y: zod.number(),
+          children: zod.array(
+            zod
+              .object({
+                id: zod.string(),
+                type: zod.enum(["method", "function_body"]),
+                name: zod.string(),
+                op_count: zod.number(),
+                nodes: zod.array(
+                  zod.object({
+                    id: zod.string().describe("Unique node identifier"),
+                    type: zod
+                      .enum([
+                        "pandas",
+                        "pytorch",
+                        "input",
+                        "output",
+                        "intermediate",
+                      ])
+                      .describe("Category of the node"),
+                    label: zod
+                      .string()
+                      .describe(
+                        'Short display name for the node (e.g., \"dropna()\")',
+                      ),
+                    description: zod
+                      .string()
+                      .describe(
+                        "Plain-English explanation of what the operation does",
+                      ),
+                    input_shape: zod
+                      .string()
+                      .nullable()
+                      .describe(
+                        'Inferred input shape\/size (e.g., \"1000x5\", \"[32, 128]\")',
+                      ),
+                    output_shape: zod
+                      .string()
+                      .nullable()
+                      .describe(
+                        'Inferred output shape\/size (e.g., \"800x3\", \"[32, 64]\")',
+                      ),
+                    position_x: zod
+                      .number()
+                      .describe(
+                        "Suggested x position for the node in the graph",
+                      ),
+                    position_y: zod
+                      .number()
+                      .describe(
+                        "Suggested y position for the node in the graph",
+                      ),
+                    group: zod
+                      .string()
+                      .nullish()
+                      .describe(
+                        "Optional group container name (e.g., class body, loop body) — frontend can render these as React Flow subflows",
+                      ),
+                  }),
+                ),
+                edges: zod.array(
+                  zod.object({
+                    id: zod.string().describe("Unique edge identifier"),
+                    source: zod.string().describe("Source node id"),
+                    target: zod.string().describe("Target node id"),
+                  }),
+                ),
+              })
+              .describe(
+                "A method (for class blocks) or body (for function\/module blocks). Contains the existing flat node graph for that scope.",
+              ),
+          ),
+          connections: zod.array(
+            zod.object({
+              to: zod.string().describe("Target block id"),
+              type: zod
+                .enum(["calls", "passes_data", "inherits"])
+                .describe("Type of relationship between blocks"),
+              label: zod
+                .string()
+                .describe(
+                  'Edge label (variable name, method name, or \"extends\")',
+                ),
+            }),
+          ),
+        })
+        .describe(
+          "A Level 1 block — class, top-level function, or module-level main code.",
+        ),
+    )
+    .describe("Top-level architecture blocks (classes, functions, main)"),
 });
 
 /**

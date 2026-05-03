@@ -6,8 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./blockChild";
+export * from "./blockChildType";
+export * from "./blockConnection";
+export * from "./blockConnectionType";
 export * from "./fetchFileRequest";
 export * from "./fetchRepoRequest";
+export * from "./flowBlock";
+export * from "./flowBlockCategory";
+export * from "./flowBlockColor";
+export * from "./flowBlockType";
 export * from "./flowEdge";
 export * from "./flowNode";
 export * from "./flowNodeType";

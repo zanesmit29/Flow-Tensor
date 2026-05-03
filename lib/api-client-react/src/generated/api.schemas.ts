@@ -58,6 +58,96 @@ export interface FlowEdge {
 }
 
 /**
+ * Type of relationship between blocks
+ */
+export type BlockConnectionType =
+  (typeof BlockConnectionType)[keyof typeof BlockConnectionType];
+
+export const BlockConnectionType = {
+  calls: "calls",
+  passes_data: "passes_data",
+  inherits: "inherits",
+} as const;
+
+export interface BlockConnection {
+  /** Target block id */
+  to: string;
+  /** Type of relationship between blocks */
+  type: BlockConnectionType;
+  /** Edge label (variable name, method name, or "extends") */
+  label: string;
+}
+
+export type BlockChildType =
+  (typeof BlockChildType)[keyof typeof BlockChildType];
+
+export const BlockChildType = {
+  method: "method",
+  function_body: "function_body",
+} as const;
+
+/**
+ * A method (for class blocks) or body (for function/module blocks). Contains the existing flat node graph for that scope.
+ */
+export interface BlockChild {
+  id: string;
+  type: BlockChildType;
+  name: string;
+  op_count: number;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+}
+
+export type FlowBlockType = (typeof FlowBlockType)[keyof typeof FlowBlockType];
+
+export const FlowBlockType = {
+  class: "class",
+  function: "function",
+  module: "module",
+} as const;
+
+export type FlowBlockColor =
+  (typeof FlowBlockColor)[keyof typeof FlowBlockColor];
+
+export const FlowBlockColor = {
+  blue: "blue",
+  purple: "purple",
+  green: "green",
+  red: "red",
+} as const;
+
+export type FlowBlockCategory =
+  (typeof FlowBlockCategory)[keyof typeof FlowBlockCategory];
+
+export const FlowBlockCategory = {
+  data: "data",
+  model: "model",
+  generic: "generic",
+  training: "training",
+  main: "main",
+} as const;
+
+/**
+ * A Level 1 block — class, top-level function, or module-level main code.
+ */
+export interface FlowBlock {
+  id: string;
+  type: FlowBlockType;
+  name: string;
+  /** Auto-generated summary line shown under the title */
+  summary: string;
+  color: FlowBlockColor;
+  category: FlowBlockCategory;
+  bases: string[];
+  attributes: string[];
+  op_count: number;
+  position_x: number;
+  position_y: number;
+  children: BlockChild[];
+  connections: BlockConnection[];
+}
+
+/**
  * Detected framework in the code
  */
 export type ParseResponseFramework =
@@ -75,6 +165,10 @@ export interface ParseResponse {
   edges: FlowEdge[];
   /** Detected framework in the code */
   framework: ParseResponseFramework;
+  /** Default visualization level (1 = architecture view) */
+  level: number;
+  /** Top-level architecture blocks (classes, functions, main) */
+  blocks: FlowBlock[];
 }
 
 export interface FetchRepoRequest {

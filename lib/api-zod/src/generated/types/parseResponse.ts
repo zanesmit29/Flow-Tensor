@@ -5,6 +5,7 @@
  * FlowTensor API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { FlowBlock } from "./flowBlock";
 import type { FlowEdge } from "./flowEdge";
 import type { FlowNode } from "./flowNode";
 import type { ParseResponseFramework } from "./parseResponseFramework";
@@ -14,4 +15,8 @@ export interface ParseResponse {
   edges: FlowEdge[];
   /** Detected framework in the code */
   framework: ParseResponseFramework;
+  /** Default visualization level (1 = architecture view) */
+  level: number;
+  /** Top-level architecture blocks (classes, functions, main) */
+  blocks: FlowBlock[];
 }

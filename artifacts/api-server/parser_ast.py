@@ -726,9 +726,9 @@ def _layout(nodes: list[dict]):
 # ---------------------------------------------------------------------------
 
 def parse_python_code(code: str) -> dict:
-    """Parse Python source code and return a flow graph."""
+    """Parse Python source code and return a flow graph (flat + hierarchical)."""
     try:
-        ast.parse(code)
+        tree = ast.parse(code)
     except SyntaxError as e:
         raise ParseError(
             "Python syntax error — check your code for typos or missing brackets.",
@@ -736,20 +736,436 @@ def parse_python_code(code: str) -> dict:
         )
 
     framework = detect_framework(code)
-    extractor = FlowExtractor()
-    extractor.parse(code)
-    nodes = extractor.builder.nodes
-    edges = extractor.builder.edges
 
-    if not nodes:
+    # Flat (legacy) view — full file as a single linear graph
+    flat_extractor = FlowExtractor()
+    flat_extractor.parse(code)
+    flat_nodes = flat_extractor.builder.nodes
+    flat_edges = flat_extractor.builder.edges
+    _layout(flat_nodes)
+
+    # Hierarchical view — Level 1 blocks
+    blocks = _build_blocks(tree)
+
+    if not flat_nodes and not blocks:
         raise ParseError(
             "No recognizable transformation steps found.",
             detail="Try pasting Pandas or PyTorch code with operations like read_csv, dropna, nn.Linear, ReLU, etc.",
         )
 
-    _layout(nodes)
     return {
-        "nodes": nodes,
-        "edges": edges,
+        "nodes": flat_nodes,
+        "edges": flat_edges,
         "framework": framework,
+        "level": 1,
+        "blocks": blocks,
     }
+
+
+# ---------------------------------------------------------------------------
+# Hierarchical block builder (Level 1 / Level 2)
+# ---------------------------------------------------------------------------
+
+LOSS_FN_NAMES = {
+    "CrossEntropyLoss", "MSELoss", "BCELoss", "NLLLoss", "L1Loss",
+    "BCEWithLogitsLoss", "SmoothL1Loss",
+}
+OPTIMIZER_NAMES = {"Adam", "AdamW", "SGD", "RMSprop", "Adagrad", "Adadelta"}
+DATASET_BASES = {"Dataset", "IterableDataset"}
+MODEL_BASES = {"Module", "nn.Module"}
+
+
+def _names_in(node) -> set[str]:
+    """All bare Name and attribute leaf identifiers used inside a subtree."""
+    found = set()
+    for n in ast.walk(node):
+        if isinstance(n, ast.Name):
+            found.add(n.id)
+        elif isinstance(n, ast.Attribute):
+            found.add(n.attr)
+    return found
+
+
+def _calls_in(node) -> list[ast.Call]:
+    return [n for n in ast.walk(node) if isinstance(n, ast.Call)]
+
+
+def _classify_class(cls: ast.ClassDef) -> tuple[str, str]:
+    """Return (category, color). category is one of: data, model, generic."""
+    base_strs = {_safe_unparse(b).split(".")[-1] for b in cls.bases}
+    if base_strs & DATASET_BASES:
+        return "data", "green"
+    if base_strs & {"Module"} or any(
+        _safe_unparse(b) in MODEL_BASES for b in cls.bases
+    ):
+        return "model", "blue"
+    return "generic", "blue"
+
+
+def _classify_function(func: ast.FunctionDef) -> tuple[str, str]:
+    names = _names_in(func)
+    if names & (LOSS_FN_NAMES | OPTIMIZER_NAMES) or {"backward", "step", "zero_grad"} & names:
+        return "training", "red"
+    return "generic", "purple"
+
+
+def _summarize_class(cls: ast.ClassDef) -> str:
+    methods = [m for m in cls.body if isinstance(m, ast.FunctionDef)]
+    method_count = len(methods)
+    # Count nn.* assignments in __init__
+    layer_count = 0
+    for m in methods:
+        if m.name == "__init__":
+            for n in ast.walk(m):
+                if isinstance(n, ast.Assign) and isinstance(n.value, ast.Call):
+                    name = _safe_unparse(n.value.func)
+                    if name.startswith("nn.") or name.split(".")[-1] in PYTORCH_OPS:
+                        layer_count += 1
+    if layer_count:
+        return f"{method_count} methods · {layer_count} layers"
+    return f"{method_count} method{'s' if method_count != 1 else ''}"
+
+
+def _summarize_function(func: ast.FunctionDef) -> str:
+    parts: list[str] = []
+    # Loop ranges
+    for n in ast.walk(func):
+        if isinstance(n, ast.For):
+            it = n.iter
+            if isinstance(it, ast.Call) and _get_call_name(it) == "range":
+                if it.args:
+                    rng = _safe_unparse(it.args[0])
+                    parts.append(f"{rng} epochs")
+                    break
+    # Optimizer
+    for n in ast.walk(func):
+        if isinstance(n, ast.Call):
+            name = _get_call_name(n)
+            if name in OPTIMIZER_NAMES:
+                parts.append(f"{name} optimizer")
+                break
+    # Loss
+    for n in ast.walk(func):
+        if isinstance(n, ast.Call):
+            name = _get_call_name(n)
+            if name in LOSS_FN_NAMES:
+                parts.append(name)
+                break
+    if parts:
+        return " · ".join(parts)
+    # Fallback: count significant statements
+    n_stmts = sum(
+        1 for s in func.body if not isinstance(s, (ast.Pass, ast.Expr))
+    ) or len(func.body)
+    return f"{n_stmts} statement{'s' if n_stmts != 1 else ''}"
+
+
+def _summarize_main(stmts: list) -> str:
+    parts: list[str] = []
+    for n in stmts:
+        for sub in ast.walk(n):
+            if isinstance(sub, ast.Call):
+                name = _get_call_name(sub)
+                if name in OPTIMIZER_NAMES and "optimizer" not in " ".join(parts):
+                    parts.append(f"{name} optimizer")
+                elif name in LOSS_FN_NAMES and name not in parts:
+                    parts.append(name)
+    if not parts:
+        n_calls = sum(len(_calls_in(s)) for s in stmts)
+        return f"{n_calls} operation{'s' if n_calls != 1 else ''}"
+    return " · ".join(parts[:3])
+
+
+def _extract_method_nodes(method: ast.FunctionDef, user_class_names: set) -> tuple[list, list]:
+    extractor = FlowExtractor()
+    extractor.user_classes = set(user_class_names)
+    if method.name == "__init__":
+        for s in method.body:
+            extractor._init_stmt(s, group=None)
+    else:
+        for s in method.body:
+            extractor._stmt(s, group=None)
+    nodes = extractor.builder.nodes
+    edges = extractor.builder.edges
+    _layout(nodes)
+    return nodes, edges
+
+
+def _extract_stmts_nodes(stmts: list, user_class_names: set) -> tuple[list, list]:
+    extractor = FlowExtractor()
+    extractor.user_classes = set(user_class_names)
+    for s in stmts:
+        extractor._stmt(s, group=None)
+    nodes = extractor.builder.nodes
+    edges = extractor.builder.edges
+    _layout(nodes)
+    return nodes, edges
+
+
+def _build_blocks(tree: ast.Module) -> list[dict]:
+    user_class_names = {s.name for s in tree.body if isinstance(s, ast.ClassDef)}
+    user_func_names = {s.name for s in tree.body if isinstance(s, ast.FunctionDef)}
+    user_block_ids = user_class_names | user_func_names
+
+    blocks: list[dict] = []
+    block_ast: dict[str, list] = {}  # block id -> list of AST nodes to scan for calls
+    main_stmts: list = []
+
+    for stmt in tree.body:
+        if isinstance(stmt, ast.ClassDef):
+            blocks.append(_build_class_block(stmt, user_class_names))
+            # Scan all method bodies for outgoing calls
+            block_ast[stmt.name] = [
+                n for m in stmt.body if isinstance(m, ast.FunctionDef) for n in m.body
+            ]
+        elif isinstance(stmt, ast.FunctionDef):
+            blocks.append(_build_function_block(stmt, user_class_names))
+            block_ast[stmt.name] = list(stmt.body)
+        elif isinstance(stmt, (ast.Import, ast.ImportFrom)):
+            continue
+        else:
+            main_stmts.append(stmt)
+
+    if main_stmts:
+        blocks.append(_build_main_block(main_stmts, user_class_names, user_block_ids))
+        block_ast["__main__"] = main_stmts
+
+    # Connections: AST-based detection
+    for b in blocks:
+        b["connections"] = _detect_connections(
+            b, block_ast.get(b["id"], []), user_class_names, user_func_names
+        )
+
+    # Layout: left-to-right by category
+    _layout_blocks(blocks)
+
+    return blocks
+
+
+def _build_class_block(cls: ast.ClassDef, user_class_names: set) -> dict:
+    category, color = _classify_class(cls)
+    bases = [_safe_unparse(b) for b in cls.bases]
+    methods = [m for m in cls.body if isinstance(m, ast.FunctionDef)]
+    attrs: list[str] = []
+    for m in methods:
+        if m.name == "__init__":
+            for s in m.body:
+                if (
+                    isinstance(s, ast.Assign)
+                    and len(s.targets) == 1
+                    and isinstance(s.targets[0], ast.Attribute)
+                    and isinstance(s.targets[0].value, ast.Name)
+                    and s.targets[0].value.id == "self"
+                ):
+                    attrs.append(s.targets[0].attr)
+
+    children: list[dict] = []
+    op_total = 0
+    for m in methods:
+        nodes, edges = _extract_method_nodes(m, user_class_names)
+        op_total += len(nodes)
+        children.append({
+            "id": f"{cls.name}.{m.name}",
+            "type": "method",
+            "name": m.name,
+            "op_count": len(nodes),
+            "nodes": nodes,
+            "edges": edges,
+        })
+
+    return {
+        "id": cls.name,
+        "type": "class",
+        "name": cls.name,
+        "summary": _summarize_class(cls),
+        "color": color,
+        "category": category,
+        "bases": bases,
+        "attributes": attrs,
+        "op_count": op_total,
+        "children": children,
+        "connections": [],
+    }
+
+
+def _build_function_block(func: ast.FunctionDef, user_class_names: set) -> dict:
+    category, color = _classify_function(func)
+    nodes, edges = _extract_method_nodes(func, user_class_names)
+    return {
+        "id": func.name,
+        "type": "function",
+        "name": func.name,
+        "summary": _summarize_function(func),
+        "color": color,
+        "category": category,
+        "bases": [],
+        "attributes": [],
+        "op_count": len(nodes),
+        "children": [{
+            "id": f"{func.name}.body",
+            "type": "function_body",
+            "name": "body",
+            "op_count": len(nodes),
+            "nodes": nodes,
+            "edges": edges,
+        }],
+        "connections": [],
+    }
+
+
+def _build_main_block(stmts: list, user_class_names: set, user_block_ids: set) -> dict:
+    nodes, edges = _extract_stmts_nodes(stmts, user_class_names)
+    # Choose color/category based on what main does
+    names = set()
+    for s in stmts:
+        names |= _names_in(s)
+    if names & (LOSS_FN_NAMES | OPTIMIZER_NAMES) or {"backward", "step"} & names:
+        category, color = "training", "red"
+    else:
+        category, color = "main", "purple"
+    return {
+        "id": "__main__",
+        "type": "module",
+        "name": "main",
+        "summary": _summarize_main(stmts),
+        "color": color,
+        "category": category,
+        "bases": [],
+        "attributes": [],
+        "op_count": len(nodes),
+        "children": [{
+            "id": "__main__.body",
+            "type": "function_body",
+            "name": "body",
+            "op_count": len(nodes),
+            "nodes": nodes,
+            "edges": edges,
+        }],
+        "connections": [],
+    }
+
+
+def _detect_connections(
+    block: dict,
+    body_nodes: list,
+    user_class_names: set,
+    user_func_names: set,
+) -> list[dict]:
+    """Find edges from this block to other blocks via AST analysis.
+
+    Detects:
+    - inherits: class bases that resolve to user-defined classes
+    - calls: direct calls to user functions, instantiations of user classes,
+             and calls on variables tracked back to a user class instance
+    """
+    out: list[dict] = []
+    seen: set[tuple] = set()
+    self_id = block["id"]
+    user_blocks = user_class_names | user_func_names
+
+    # Inheritance
+    if block["type"] == "class":
+        for base in block.get("bases", []):
+            base_short = base.split(".")[-1]
+            if base_short in user_class_names and base_short != self_id:
+                key = (base_short, "inherits")
+                if key not in seen:
+                    out.append({"to": base_short, "type": "inherits", "label": "extends"})
+                    seen.add(key)
+
+    # Track variable -> user-class assignments so `model = ConvNet(); model(x)`
+    # resolves the latter call to ConvNet.
+    var_to_class: dict[str, str] = {}
+
+    def record_assign_target(target: ast.AST, value: ast.AST) -> None:
+        # Resolve the user class produced by `value`, if any.
+        cls = _resolves_to_user_class(value, user_class_names)
+        if not cls:
+            return
+        if isinstance(target, ast.Name):
+            var_to_class[target.id] = cls
+        elif (
+            isinstance(target, ast.Attribute)
+            and isinstance(target.value, ast.Name)
+            and target.value.id == "self"
+        ):
+            var_to_class[f"self.{target.attr}"] = cls
+
+    def emit_call(target_id: str) -> None:
+        if target_id == self_id or target_id not in user_blocks:
+            return
+        key = (target_id, "calls")
+        if key in seen:
+            return
+        out.append({"to": target_id, "type": "calls", "label": "calls"})
+        seen.add(key)
+
+    def visit(node: ast.AST) -> None:
+        # Record assignments first so subsequent statements can resolve calls.
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                record_assign_target(t, node.value)
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            record_assign_target(node.target, node.value)
+
+        if isinstance(node, ast.Call):
+            func = node.func
+            # Direct: foo(...) where foo is a user function or class
+            if isinstance(func, ast.Name):
+                if func.id in user_blocks:
+                    emit_call(func.id)
+            # Variable call: model(x) where model: ConvNet
+            elif isinstance(func, ast.Attribute):
+                # self.attr(...) or var.method(...)
+                if isinstance(func.value, ast.Name) and func.value.id in var_to_class:
+                    emit_call(var_to_class[func.value.id])
+                elif (
+                    isinstance(func.value, ast.Attribute)
+                    and isinstance(func.value.value, ast.Name)
+                    and func.value.value.id == "self"
+                ):
+                    key = f"self.{func.value.attr}"
+                    if key in var_to_class:
+                        emit_call(var_to_class[key])
+            # Calling a tracked variable directly: model(x)
+            # (ast.Call with func=Name handled above when name is a user block)
+            # Handle the case where func is a Name pointing to a tracked instance.
+            if isinstance(func, ast.Name) and func.id in var_to_class:
+                emit_call(var_to_class[func.id])
+
+        for child in ast.iter_child_nodes(node):
+            visit(child)
+
+    for stmt in body_nodes:
+        visit(stmt)
+
+    return out
+
+
+def _resolves_to_user_class(value: ast.AST, user_class_names: set) -> str | None:
+    """If `value` is `UserClass(...)` (possibly chained), return the class name."""
+    if isinstance(value, ast.Call):
+        f = value.func
+        if isinstance(f, ast.Name) and f.id in user_class_names:
+            return f.id
+        if isinstance(f, ast.Attribute) and f.attr in user_class_names:
+            return f.attr
+    return None
+
+
+def _layout_blocks(blocks: list[dict]) -> None:
+    """Left-to-right flow: data → model → training/main."""
+    order = {"data": 0, "model": 1, "generic": 1, "training": 2, "main": 2}
+    cols: dict[int, list[dict]] = {}
+    for b in blocks:
+        col = order.get(b.get("category", "generic"), 1)
+        cols.setdefault(col, []).append(b)
+
+    col_w = 320
+    row_h = 200
+    x_pad = 80
+    y_pad = 60
+    for col_idx in sorted(cols.keys()):
+        for row_idx, b in enumerate(cols[col_idx]):
+            b["position_x"] = x_pad + col_idx * col_w
+            b["position_y"] = y_pad + row_idx * row_h

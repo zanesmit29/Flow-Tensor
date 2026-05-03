@@ -177,6 +177,107 @@ components:
         - id
         - source
         - target
+    BlockConnection:
+      type: object
+      properties:
+        to:
+          type: string
+          description: Target block id
+        type:
+          type: string
+          enum: [calls, passes_data, inherits]
+          description: Type of relationship between blocks
+        label:
+          type: string
+          description: Edge label (variable name, method name, or "extends")
+      required:
+        - to
+        - type
+        - label
+    BlockChild:
+      type: object
+      description: A method (for class blocks) or body (for function/module blocks). Contains the existing flat node graph for that scope.
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [method, function_body]
+        name:
+          type: string
+        op_count:
+          type: integer
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/FlowNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/FlowEdge"
+      required:
+        - id
+        - type
+        - name
+        - op_count
+        - nodes
+        - edges
+    FlowBlock:
+      type: object
+      description: A Level 1 block — class, top-level function, or module-level main code.
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [class, function, module]
+        name:
+          type: string
+        summary:
+          type: string
+          description: Auto-generated summary line shown under the title
+        color:
+          type: string
+          enum: [blue, purple, green, red]
+        category:
+          type: string
+          enum: [data, model, generic, training, main]
+        bases:
+          type: array
+          items:
+            type: string
+        attributes:
+          type: array
+          items:
+            type: string
+        op_count:
+          type: integer
+        position_x:
+          type: number
+        position_y:
+          type: number
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlockChild"
+        connections:
+          type: array
+          items:
+            $ref: "#/components/schemas/BlockConnection"
+      required:
+        - id
+        - type
+        - name
+        - summary
+        - color
+        - category
+        - bases
+        - attributes
+        - op_count
+        - position_x
+        - position_y
+        - children
+        - connections
     ParseResponse:
       type: object
       properties:
@@ -192,10 +293,20 @@ components:
           type: string
           enum: [pandas, pytorch, mixed, unknown]
           description: Detected framework in the code
+        level:
+          type: integer
+          description: Default visualization level (1 = architecture view)
+        blocks:
+          type: array
+          description: Top-level architecture blocks (classes, functions, main)
+          items:
+            $ref: "#/components/schemas/FlowBlock"
       required:
         - nodes
         - edges
         - framework
+        - level
+        - blocks
     FetchRepoRequest:
       type: object
       properties:

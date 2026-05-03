@@ -32,7 +32,9 @@ pnpm workspace monorepo using TypeScript. Contains the FlowTensor app — a web 
 ## Key API Endpoints
 
 - `GET /api/healthz` — health check
-- `POST /api/parse` — parses Python code (PyTorch/Pandas) and returns flow graph nodes + edges
+- `POST /api/parse` — parses Python code (PyTorch/Pandas) and returns:
+  - flat `nodes`/`edges` (legacy linear view)
+  - hierarchical `blocks` (Level 1: classes, top-level functions, module main) with `children` containing per-method node graphs (Level 3). Frontend uses these for drill-down navigation.
 
 ## Key Commands
 
