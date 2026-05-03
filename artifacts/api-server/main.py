@@ -28,12 +28,14 @@ class ParseRequest(BaseModel):
 
 class FetchRepoRequest(BaseModel):
     url: str
+    github_token: str | None = None
 
 
 class FetchFileRequest(BaseModel):
     owner: str
     repo: str
     path: str
+    github_token: str | None = None
 
 
 REPO_URL_RE = re.compile(
@@ -52,16 +54,22 @@ def _err(message: str, status_code: int = 422):
     )
 
 
-def _gh_get(url: str):
-    """GET a GitHub API URL. Returns parsed JSON."""
+def _gh_headers(user_token: str | None = None) -> dict:
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": "FlowTensor",
     }
-    token = os.environ.get("GITHUB_TOKEN")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    request = urllib.request.Request(url, headers=headers)
+    env_token = os.environ.get("GITHUB_TOKEN")
+    # User-provided token takes priority over env variable
+    active_token = (user_token or "").strip() or env_token
+    if active_token:
+        headers["Authorization"] = f"Bearer {active_token}"
+    return headers
+
+
+def _gh_get(url: str, token: str | None = None):
+    """GET a GitHub API URL. Returns parsed JSON."""
+    request = urllib.request.Request(url, headers=_gh_headers(token))
     with urllib.request.urlopen(request, timeout=15) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
@@ -78,12 +86,14 @@ def _is_excluded_file(name: str) -> bool:
     return False
 
 
-def _walk_repo(owner: str, repo: str, path: str, depth: int, out: list) -> None:
+def _walk_repo(
+    owner: str, repo: str, path: str, depth: int, out: list, token: str | None = None
+) -> None:
     if depth > MAX_DEPTH:
         return
     encoded = urllib.parse.quote(path)
     contents_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{encoded}"
-    items = _gh_get(contents_url)
+    items = _gh_get(contents_url, token)
     if not isinstance(items, list):
         return
     for item in items:
@@ -95,7 +105,7 @@ def _walk_repo(owner: str, repo: str, path: str, depth: int, out: list) -> None:
         if item_type == "dir":
             if name in EXCLUDED_DIRS or name.startswith("."):
                 continue
-            _walk_repo(owner, repo, item_path, depth + 1, out)
+            _walk_repo(owner, repo, item_path, depth + 1, out, token)
         elif item_type == "file":
             if _is_excluded_file(name):
                 continue
@@ -156,8 +166,9 @@ def fetch_repo(req: FetchRepoRequest):
         return _err("Invalid GitHub repository URL")
     owner, repo = parsed
 
+    user_token = req.github_token
     try:
-        meta = _gh_get(f"https://api.github.com/repos/{owner}/{repo}")
+        meta = _gh_get(f"https://api.github.com/repos/{owner}/{repo}", user_token)
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return _err("Repository not found or is private")
@@ -171,7 +182,7 @@ def fetch_repo(req: FetchRepoRequest):
 
     files: list = []
     try:
-        _walk_repo(owner, repo, "", 0, files)
+        _walk_repo(owner, repo, "", 0, files, user_token)
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return _err("Repository contents not found")
@@ -213,7 +224,7 @@ def fetch_file(req: FetchFileRequest):
     encoded = urllib.parse.quote(path)
     api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{encoded}"
     try:
-        data = _gh_get(api_url)
+        data = _gh_get(api_url, req.github_token)
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return _err("File not found")

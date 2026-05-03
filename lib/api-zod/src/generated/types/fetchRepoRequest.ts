@@ -9,4 +9,6 @@
 export interface FetchRepoRequest {
   /** A public GitHub repository URL (e.g. github.com/owner/repo) */
   url: string;
+  /** Optional GitHub Personal Access Token to raise the rate limit */
+  github_token?: string | null;
 }

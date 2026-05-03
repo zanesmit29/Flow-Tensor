@@ -1,0 +1,97 @@
+Add a GitHub token input field directly in the app UI so users 
+can enter their own GitHub Personal Access Token without needing 
+access to Replit Secrets.
+
+--- WHERE TO ADD IT ---
+
+In the "Import from GitHub" tab, below the repo URL input, 
+add a collapsible "GitHub Token (optional)" section:
+
+[🔑 GitHub Token (optional) ▼]
+
+When expanded, show:
+
+┌─────────────────────────────────────────────────────┐
+│  GitHub Personal Access Token (optional)            │
+│  ┌─────────────────────────────────────────────┐   │
+│  │  ghp_••••••••••••••••••••••••••••••••••••   │   │
+│  └─────────────────────────────────────────────┘   │
+│  Increases rate limit from 60 to 5,000 req/hour    │
+│  "How to get a token →" (link, opens in new tab)   │
+└─────────────────────────────────────────────────────┘
+
+Style:
+- Input type="password" so the token is masked by default
+- Small eye icon (👁) on the right to toggle visibility
+- Muted helper text below explaining the benefit
+- "How to get a token →" links to:
+  https://github.com/settings/tokens/new?scopes=public_repo&description=FlowTensor
+  (This pre-fills the token creation form for the user)
+
+--- STORAGE ---
+
+Store the token in a JavaScript variable (NOT localStorage — 
+Replit sandboxed iframes block storage access).
+The token persists only for the current session.
+
+On page refresh the field will be empty — this is acceptable 
+and is a security feature.
+
+--- SENDING THE TOKEN TO THE BACKEND ---
+
+When "Browse Repo →" or "Visualize Selected File →" is clicked,
+include the token in the request body if present:
+
+POST /fetch-repo
+{ 
+  "url": "https://github.com/...",
+  "github_token": "ghp_abc123..."   // null if not provided
+}
+
+POST /fetch-file
+{
+  "owner": "...",
+  "repo": "...", 
+  "path": "...",
+  "github_token": "ghp_abc123..."
+}
+
+--- BACKEND CHANGES ---
+
+Update both endpoints to accept an optional github_token field:
+
+def get_github_headers(token: str = None):
+    env_token = os.environ.get("GITHUB_TOKEN")
+    # User-provided token takes priority over env variable
+    active_token = token or env_token
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    if active_token:
+        headers["Authorization"] = f"Bearer {active_token}"
+    return headers
+
+Use the token from the request body first, 
+fall back to GITHUB_TOKEN env variable if not provided.
+
+--- TOKEN STATUS INDICATOR ---
+
+After the user enters a token, show a small inline validator:
+When they stop typing (debounce 800ms), make a lightweight 
+test call to: GET https://api.github.com/rate_limit
+using the provided token.
+
+Show the result next to the input:
+- ✅ "Token valid · 5,000 requests/hour available"  (green)
+- ❌ "Invalid token"  (red)
+- 🔵 "No token · 60 requests/hour"  (default, muted)
+
+--- RATE LIMIT WARNING ---
+
+If a GitHub API call fails with 403/rate limit AND no token 
+is currently set, show a specific actionable error:
+
+"GitHub rate limit reached. Add a free token above 
+ to get 5,000 requests/hour →"
+
+Make the "→" scroll up and auto-expand the token input section.
+
+Do not change any visualization or parsing logic.

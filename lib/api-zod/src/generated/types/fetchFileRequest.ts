@@ -10,4 +10,6 @@ export interface FetchFileRequest {
   owner: string;
   repo: string;
   path: string;
+  /** Optional GitHub Personal Access Token to raise the rate limit */
+  github_token?: string | null;
 }

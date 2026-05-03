@@ -202,6 +202,10 @@ components:
         url:
           type: string
           description: A public GitHub repository URL (e.g. github.com/owner/repo)
+        github_token:
+          type: string
+          description: Optional GitHub Personal Access Token to raise the rate limit
+          nullable: true
       required:
         - url
     RepoFile:
@@ -266,6 +270,10 @@ components:
           type: string
         path:
           type: string
+        github_token:
+          type: string
+          description: Optional GitHub Personal Access Token to raise the rate limit
+          nullable: true
       required:
         - owner
         - repo

@@ -84,6 +84,10 @@ export const FetchRepoBody = zod.object({
   url: zod
     .string()
     .describe("A public GitHub repository URL (e.g. github.com\/owner\/repo)"),
+  github_token: zod
+    .string()
+    .nullish()
+    .describe("Optional GitHub Personal Access Token to raise the rate limit"),
 });
 
 export const FetchRepoResponse = zod.object({
@@ -112,6 +116,10 @@ export const FetchFileBody = zod.object({
   owner: zod.string(),
   repo: zod.string(),
   path: zod.string(),
+  github_token: zod
+    .string()
+    .nullish()
+    .describe("Optional GitHub Personal Access Token to raise the rate limit"),
 });
 
 export const FetchFileResponse = zod.object({
