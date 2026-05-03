@@ -18,7 +18,7 @@ export default function Closing() {
         </p>
 
         <div className="font-mono text-[1.3vw] text-white bg-[#16161E] border border-white/10 rounded-[0.5vw] px-[2vw] py-[2vh] mb-[8vh]">
-          <span className="text-[#9ECE6A]">→</span> flowtensor.ai
+          <span className="text-[#9ECE6A]">→</span> flowhub-v5.replit.app/
         </div>
 
         <div className="flex gap-[4vw] border-t border-white/5 pt-[4vh]">
