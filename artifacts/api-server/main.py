@@ -181,14 +181,20 @@ def _groq_cache_key(req: "ExplainNodeRequestModel") -> str:
 
 
 _GROQ_SYSTEM_PROMPT = """You are an expert data science mentor embedded in a code visualization tool called FlowTensor.
-Explain what a specific operation does in a practical, insightful way — not generically, but for THIS specific code.
-Be concise. Plain English. Max 4 sentences total.
+Your job is to explain ONE specific operation in the user's code so a developer truly understands:
+  • WHY this line matters (its importance in the overall pipeline)
+  • HOW it works at a high level (the mechanism, intuition, or math — without drowning them in detail)
+  • WHAT it actually does to the data flowing through it (refer to real shapes/numbers when given)
+
+Be specific to THIS code, never generic textbook definitions. Talk like a senior engineer mentoring a teammate.
+Plain English. No filler. Each field is 1–2 sentences.
+
 Always respond with valid JSON using exactly these keys:
 {
-  "what": "1 sentence — what this does in this specific context",
-  "impact": "1 sentence — what it means for the data, reference actual numbers",
-  "tip": "1 sentence — a practical tip specific to this situation",
-  "risk": "1 sentence — only include if there is a real risk, else omit this key"
+  "what": "What this operation does AND a high-level intuition for HOW it works (mechanism in one breath, e.g. 'slides learnable filters across the input'). Reference the variable name and library when relevant.",
+  "impact": "Why this step matters in the overall pipeline AND what it does to the data (use the actual before/after shapes or parameter values to make it concrete).",
+  "tip": "A practical, situation-specific tip — a tunable knob, a common alternative, or a way to debug this exact step. No generic advice.",
+  "risk": "Only include if there's a real risk in THIS context (e.g. shape mismatch, data leakage, numerical instability). Omit the key entirely if nothing concrete to flag."
 }"""
 
 
@@ -249,21 +255,44 @@ def explain_node(req: ExplainNodeRequestModel):
             },
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=15) as resp:
+        with urllib.request.urlopen(request, timeout=20) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-    except Exception:
-        # Never crash — fall back silently to static
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read().decode("utf-8")[:500]
+        except Exception:
+            body = ""
+        print(f"[groq] HTTPError {e.code}: {body}", flush=True)
+        return _static_explanation()
+    except Exception as e:
+        print(f"[groq] error: {type(e).__name__}: {e}", flush=True)
         return _static_explanation()
 
     content = ""
     try:
         content = data["choices"][0]["message"]["content"] or ""
-    except Exception:
+    except Exception as e:
+        print(f"[groq] missing choices: {e}; data={str(data)[:300]}", flush=True)
         return _static_explanation()
+
+    # Strip <think>...</think> blocks that some reasoning models (e.g. qwen3) emit.
+    if "<think>" in content and "</think>" in content:
+        content = content.split("</think>", 1)[1].strip()
+    # Also handle fenced JSON code blocks.
+    if "```" in content:
+        parts = content.split("```")
+        for part in parts:
+            stripped = part.strip()
+            if stripped.startswith("json"):
+                stripped = stripped[4:].strip()
+            if stripped.startswith("{") and stripped.endswith("}"):
+                content = stripped
+                break
 
     try:
         parsed = json.loads(content)
-    except Exception:
+    except Exception as e:
+        print(f"[groq] JSON parse failed: {e}; content={content[:300]}", flush=True)
         return _static_explanation()
 
     cleaned = {k: parsed[k] for k in ("what", "impact", "tip", "risk") if k in parsed and parsed[k]}
