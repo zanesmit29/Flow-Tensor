@@ -1,25 +1,34 @@
 @import "tailwindcss";
 
 @theme inline {
+  --color-bg: var(--slide-bg);
+  --color-card: var(--slide-card);
+  --color-text: var(--slide-text);
+  --color-bright: var(--slide-bright);
+  --color-muted: var(--slide-muted);
+  --color-dim: var(--slide-dim);
   --color-primary: var(--slide-primary);
   --color-accent: var(--slide-accent);
-  --color-bg: var(--slide-bg);
-  --color-text: var(--slide-text);
-  --color-muted: var(--slide-muted);
+  --color-warn: var(--slide-warn);
+  --color-orange: var(--slide-orange);
   --font-display: var(--font-display-family);
-  --font-body: var(--font-body-family);
+  --font-mono: var(--font-mono-family);
 }
 
 :root {
-  /* Replace these with brand colors */
-  --slide-primary: #4f46e5;
-  --slide-accent: #06b6d4;
-  --slide-bg: #f8fafc;
-  --slide-text: #0f172a;
-  --slide-muted: #64748b;
+  --slide-bg: #1A1B26;
+  --slide-card: #16161E;
+  --slide-text: #C0CAF5;
+  --slide-bright: #FFFFFF;
+  --slide-muted: #9AA5CE;
+  --slide-dim: #565F89;
+  --slide-primary: #7AA2F7;
+  --slide-accent: #9ECE6A;
+  --slide-warn: #E0AF68;
+  --slide-orange: #FF9E64;
   --font-display-family: "Inter", system-ui, sans-serif;
-  --font-body-family: "Inter", system-ui, sans-serif;
-  color-scheme: light;
+  --font-mono-family: "DM Mono", "JetBrains Mono", monospace;
+  color-scheme: dark;
 }
 
 html,
@@ -33,6 +42,7 @@ body,
 body {
   background: var(--slide-bg);
   color: var(--slide-text);
+  font-family: var(--font-display-family);
 }
 
 .slide {

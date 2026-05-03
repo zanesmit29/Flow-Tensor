@@ -1,1 +1,130 @@
-[]
+[
+  {
+    "id": "01HZF1A0000000000000000001",
+    "position": 1,
+    "filepath": "src/pages/slides/Title.tsx",
+    "title": "FlowTensor",
+    "description": "Title slide — high-level idea and what it does",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A0000000000000000002",
+    "position": 2,
+    "filepath": "src/pages/slides/Problem.tsx",
+    "title": "The Problem",
+    "description": "Why reading ML code top-to-bottom hides what's happening",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A0000000000000000003",
+    "position": 3,
+    "filepath": "src/pages/slides/PasteToGraph.tsx",
+    "title": "Paste to Graph",
+    "description": "Core flow: paste Python, get an interactive graph",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A0000000000000000004",
+    "position": 4,
+    "filepath": "src/pages/slides/Languages.tsx",
+    "title": "Multi-Library Support",
+    "description": "Native PyTorch, Pandas, and NumPy parsing",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A0000000000000000005",
+    "position": 5,
+    "filepath": "src/pages/slides/GithubImport.tsx",
+    "title": "GitHub Import",
+    "description": "Paste a GitHub URL and parse it directly",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A0000000000000000006",
+    "position": 6,
+    "filepath": "src/pages/slides/Examples.tsx",
+    "title": "Examples Library",
+    "description": "12+ curated runnable examples",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A0000000000000000007",
+    "position": 7,
+    "filepath": "src/pages/slides/Levels.tsx",
+    "title": "Three Levels of Detail",
+    "description": "Drill from blocks to logical groups to individual ops",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A0000000000000000008",
+    "position": 8,
+    "filepath": "src/pages/slides/CustomNodes.tsx",
+    "title": "Typed Custom Nodes",
+    "description": "Distinct shape and color per operation type",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A0000000000000000009",
+    "position": 9,
+    "filepath": "src/pages/slides/AiPanel.tsx",
+    "title": "AI Explainer Panel",
+    "description": "Click any node, get a Groq-powered explanation",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A000000000000000000A",
+    "position": 10,
+    "filepath": "src/pages/slides/Format.tsx",
+    "title": "What / Impact / Tip / Risk",
+    "description": "The structured format every explanation comes back in",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A000000000000000000B",
+    "position": 11,
+    "filepath": "src/pages/slides/Audience.tsx",
+    "title": "Three Audience Levels",
+    "description": "Beginner, intermediate, pro — explanation rewrites itself",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A000000000000000000C",
+    "position": 12,
+    "filepath": "src/pages/slides/Regenerate.tsx",
+    "title": "Explain Differently",
+    "description": "One-click regenerate with a different angle",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A000000000000000000D",
+    "position": 13,
+    "filepath": "src/pages/slides/ApiKey.tsx",
+    "title": "Bring Your Own Key",
+    "description": "Session-only Groq key, never persisted",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A000000000000000000E",
+    "position": 14,
+    "filepath": "src/pages/slides/Cache.tsx",
+    "title": "Smart Caching",
+    "description": "Identical requests return instantly with zero tokens",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A000000000000000000F",
+    "position": 15,
+    "filepath": "src/pages/slides/GetStarted.tsx",
+    "title": "How To Get Started",
+    "description": "Built-in 5-step walkthrough",
+    "speakerNotes": ""
+  },
+  {
+    "id": "01HZF1A0000000000000000010",
+    "position": 16,
+    "filepath": "src/pages/slides/Closing.tsx",
+    "title": "Try FlowTensor",
+    "description": "Closing slide",
+    "speakerNotes": ""
+  }
+]
