@@ -53,14 +53,15 @@ def _err(message: str, status_code: int = 422):
 
 
 def _gh_get(url: str):
-    """GET a GitHub API URL. Returns (status, json_or_text)."""
-    request = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "FlowTensor",
-        },
-    )
+    """GET a GitHub API URL. Returns parsed JSON."""
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "FlowTensor",
+    }
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(request, timeout=15) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
