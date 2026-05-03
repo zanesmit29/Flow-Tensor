@@ -523,21 +523,33 @@ function Level3FlowInner({ nodes: apiNodes, edges: apiEdges, framework, scopeLab
         <Controls className="fill-white !bg-[#1a1d24] !border-white/10 !shadow-2xl" />
       </ReactFlow>
 
-      {framework && framework !== 'unknown' && (
-        <div className="absolute bottom-6 right-6 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 shadow-xl text-white">
-          <div
-            className={`w-2 h-2 rounded-full animate-pulse ${
-              framework === 'pytorch'
-                ? 'bg-[#f97316] shadow-[0_0_8px_#f97316]'
-                : framework === 'pandas'
-                ? 'bg-[#3b82f6] shadow-[0_0_8px_#3b82f6]'
-                : 'bg-purple-500 shadow-[0_0_8px_#a855f7]'
-            }`}
-          />
-          <span className="capitalize">{framework} Detected</span>
-          {scopeLabel && <span className="text-white/40 ml-1">· {scopeLabel}</span>}
-        </div>
-      )}
+      {framework && framework !== 'unknown' && (() => {
+        const hasNumpy = framework.includes('numpy');
+        const baseFw = framework.replace('+numpy', '').replace('numpy', '');
+        let dotClass: string;
+        if (hasNumpy && !baseFw) {
+          dotClass = 'bg-[#f59e0b] shadow-[0_0_8px_#f59e0b]';
+        } else if (baseFw === 'pytorch') {
+          dotClass = 'bg-[#f97316] shadow-[0_0_8px_#f97316]';
+        } else if (baseFw === 'pandas') {
+          dotClass = 'bg-[#3b82f6] shadow-[0_0_8px_#3b82f6]';
+        } else {
+          dotClass = 'bg-purple-500 shadow-[0_0_8px_#a855f7]';
+        }
+        const parts: string[] = [];
+        if (baseFw === 'pandas') parts.push('Pandas');
+        else if (baseFw === 'pytorch') parts.push('PyTorch');
+        else if (baseFw === 'mixed') parts.push('Pandas', 'PyTorch');
+        if (hasNumpy) parts.push('NumPy');
+        const label = parts.length ? parts.join(' + ') : framework;
+        return (
+          <div className="absolute bottom-6 right-6 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 shadow-xl text-white">
+            <div className={`w-2 h-2 rounded-full animate-pulse ${dotClass}`} />
+            <span>{label} Detected</span>
+            {scopeLabel && <span className="text-white/40 ml-1">· {scopeLabel}</span>}
+          </div>
+        );
+      })()}
 
       <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
         <AnimatePresence>

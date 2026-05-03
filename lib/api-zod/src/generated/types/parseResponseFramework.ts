@@ -17,4 +17,8 @@ export const ParseResponseFramework = {
   pytorch: "pytorch",
   mixed: "mixed",
   unknown: "unknown",
+  numpy: "numpy",
+  "pandas+numpy": "pandas+numpy",
+  "pytorch+numpy": "pytorch+numpy",
+  "mixed+numpy": "mixed+numpy",
 } as const;

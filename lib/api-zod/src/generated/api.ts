@@ -72,7 +72,16 @@ export const ParseCodeResponse = zod.object({
     }),
   ),
   framework: zod
-    .enum(["pandas", "pytorch", "mixed", "unknown"])
+    .enum([
+      "pandas",
+      "pytorch",
+      "mixed",
+      "unknown",
+      "numpy",
+      "pandas+numpy",
+      "pytorch+numpy",
+      "mixed+numpy",
+    ])
     .describe("Detected framework in the code"),
   level: zod
     .number()

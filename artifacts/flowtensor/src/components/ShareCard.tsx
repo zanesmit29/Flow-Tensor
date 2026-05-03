@@ -50,10 +50,14 @@ function cubicPath(x1: number, y1: number, x2: number, y2: number): string {
 }
 
 function frameworkLabel(fw: string): string {
-  if (fw === 'pandas') return 'Pandas';
-  if (fw === 'pytorch') return 'PyTorch';
-  if (fw === 'mixed') return 'Pandas + PyTorch';
-  return 'Pipeline';
+  const hasNumpy = fw.includes('numpy');
+  const base = fw.replace('+numpy', '').replace('numpy', '');
+  const parts: string[] = [];
+  if (base === 'pandas') parts.push('Pandas');
+  else if (base === 'pytorch') parts.push('PyTorch');
+  else if (base === 'mixed') parts.push('Pandas', 'PyTorch');
+  if (hasNumpy) parts.push('NumPy');
+  return parts.length ? parts.join(' + ') : 'Pipeline';
 }
 
 interface ShareCardProps {
@@ -267,11 +271,23 @@ const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(({ data }, ref) => 
       }}>
         {/* Step count + framework */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 7, height: 7, borderRadius: '50%',
-            background: data.framework === 'pytorch' ? '#f97316' : data.framework === 'pandas' ? '#3b82f6' : '#a855f7',
-            boxShadow: `0 0 8px ${data.framework === 'pytorch' ? '#f97316' : data.framework === 'pandas' ? '#3b82f6' : '#a855f7'}`,
-          }} />
+          {(() => {
+            const fw = data.framework;
+            const hasNumpy = fw.includes('numpy');
+            const baseFw = fw.replace('+numpy', '').replace('numpy', '');
+            let dot: string;
+            if (hasNumpy && !baseFw) dot = '#f59e0b';
+            else if (baseFw === 'pytorch') dot = '#f97316';
+            else if (baseFw === 'pandas') dot = '#3b82f6';
+            else dot = '#a855f7';
+            return (
+              <div style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: dot,
+                boxShadow: `0 0 8px ${dot}`,
+              }} />
+            );
+          })()}
           <div style={{
             fontSize: 13.5, color: 'rgba(255,255,255,0.52)', fontWeight: 600,
             letterSpacing: '-0.1px',

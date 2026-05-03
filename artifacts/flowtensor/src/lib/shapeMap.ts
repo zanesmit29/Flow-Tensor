@@ -64,6 +64,18 @@ const OP_TO_CATEGORY: Record<string, ShapeCategory> = {
 
   // Output / Sink
   to_csv: "output", to_json: "output", to_excel: "output", to_parquet: "output", print: "output",
+  save: "output", savez: "output", savetxt: "output", set_printoptions: "output",
+
+  // NumPy — additive entries (existing keys above already cover most ops)
+  array: "data-source", empty: "data-source", full: "data-source",
+  zeros_like: "data-source", ones_like: "data-source",
+  randint: "data-source", load: "data-source", loadtxt: "data-source",
+  expand_dims: "transform", ravel: "transform",
+  dot: "transform", cross: "transform", outer: "transform", inner: "transform",
+  power: "transform", "linalg.norm": "transform", "linalg.inv": "transform", "linalg.eig": "transform",
+  std: "aggregate", var: "aggregate", median: "aggregate", percentile: "aggregate",
+  nonzero: "filter", extract: "filter",
+  concatenate: "merge", vstack: "merge", hstack: "merge", dstack: "merge", block: "merge",
 
   // PyTorch Layer
   Linear: "pytorch-layer", Conv2d: "pytorch-layer", Conv1d: "pytorch-layer",
@@ -93,9 +105,38 @@ export function stripParens(label: string): string {
   return label.replace(/\(\)$/, "");
 }
 
+// NumPy-specific category overrides. Used only when a label has the `np.`
+// prefix so existing pandas/pytorch behavior in OP_TO_CATEGORY is unaffected
+// (e.g., pandas `df.where()` still maps to "transform").
+const NUMPY_OP_TO_CATEGORY: Record<string, ShapeCategory> = {
+  // FILTER (coral) — masking / selection
+  where: "filter", clip: "filter", nonzero: "filter", extract: "filter",
+  // TRANSFORM — math / linear algebra (NumPy treats these as transforms)
+  matmul: "transform", dot: "transform", cross: "transform",
+  outer: "transform", inner: "transform", power: "transform",
+  "linalg.norm": "transform", "linalg.inv": "transform", "linalg.eig": "transform",
+};
+
+function extractOpKey(label: string): { key: string; isNumpy: boolean } {
+  // Strip trailing argument list, e.g. "np.reshape(arr, (4,5))" → "np.reshape"
+  const noArgs = label.replace(/\s*\(.*\)\s*$/, "");
+  const isNumpy = noArgs.startsWith("np.") || noArgs.startsWith("numpy.");
+  const stripped = isNumpy ? noArgs.replace(/^(np|numpy)\./, "") : noArgs;
+  // Prefer the full dotted form (e.g. "linalg.norm") if known, else the tail.
+  if (stripped.includes(".")) {
+    if (OP_TO_CATEGORY[stripped] || NUMPY_OP_TO_CATEGORY[stripped]) {
+      return { key: stripped, isNumpy };
+    }
+    return { key: stripped.slice(stripped.lastIndexOf(".") + 1), isNumpy };
+  }
+  return { key: stripped, isNumpy };
+}
+
 export function getShapeMeta(label: string, type: FlowNodeType): ShapeMeta {
-  const op = stripParens(label);
-  let category = OP_TO_CATEGORY[op];
+  const { key, isNumpy } = extractOpKey(label);
+  let category: ShapeCategory | undefined;
+  if (isNumpy) category = NUMPY_OP_TO_CATEGORY[key];
+  if (!category) category = OP_TO_CATEGORY[key];
 
   if (!category) {
     if (type === "input") category = "data-source";

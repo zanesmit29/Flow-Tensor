@@ -197,6 +197,98 @@ TRANSFORM_OPS = {
 
 
 # ---------------------------------------------------------------------------
+# NumPy operation knowledge base (additive — independent of pandas/pytorch)
+# ---------------------------------------------------------------------------
+
+# Each entry: op_name → (category, description, input_shape, output_shape)
+# category is one of: data_source, transform, aggregate, filter, merge, output
+NUMPY_OPS: dict[str, tuple[str, str, Optional[str], Optional[str]]] = {
+    # DATA SOURCE — array creation
+    "array":        ("data_source", "Creates a NumPy array from existing data.", None, "ndarray"),
+    "zeros":        ("data_source", "Creates a new array filled with zeros, useful for initializing weights or masks.", None, "ndarray"),
+    "ones":         ("data_source", "Creates a new array filled with ones.", None, "ndarray"),
+    "zeros_like":   ("data_source", "Creates an array of zeros with the same shape as a given array.", "ndarray", "ndarray"),
+    "ones_like":    ("data_source", "Creates an array of ones with the same shape as a given array.", "ndarray", "ndarray"),
+    "empty":        ("data_source", "Creates an uninitialized array of the given shape.", None, "ndarray"),
+    "full":         ("data_source", "Creates an array filled with a constant value.", None, "ndarray"),
+    "arange":       ("data_source", "Creates an evenly spaced sequence of numbers, like Python's range() but returns an array.", None, "ndarray"),
+    "linspace":     ("data_source", "Creates evenly spaced numbers over a specified interval — useful for plotting.", None, "ndarray"),
+    "rand":         ("data_source", "Generates random numbers from a uniform distribution between 0 and 1.", None, "ndarray"),
+    "randn":        ("data_source", "Generates random numbers from a standard normal distribution (mean=0, std=1).", None, "ndarray"),
+    "randint":      ("data_source", "Generates random integers from a discrete uniform distribution.", None, "ndarray"),
+    "load":         ("data_source", "Loads arrays from a .npy or .npz file.", None, "ndarray"),
+    "loadtxt":      ("data_source", "Loads data from a text file into an array.", None, "ndarray"),
+
+    # TRANSFORM — shape changing
+    "reshape":      ("transform", "Rearranges the array into a new shape without changing its data. Total elements must stay the same.", "ndarray", "ndarray (reshaped)"),
+    "resize":       ("transform", "Returns a new array with the specified shape, repeating data if needed.", "ndarray", "ndarray (resized)"),
+    "transpose":    ("transform", "Flips the axes of the array — rows become columns and vice versa.", "ndarray", "ndarray (transposed)"),
+    "squeeze":      ("transform", "Removes axes of length 1 from the array.", "ndarray", "ndarray (squeezed)"),
+    "expand_dims":  ("transform", "Inserts a new axis of length 1 at the given position.", "ndarray", "ndarray (expanded)"),
+    "flatten":      ("transform", "Returns a 1D copy of the array.", "ndarray", "ndarray (1D)"),
+    "ravel":        ("transform", "Returns a contiguous flattened 1D view of the array.", "ndarray", "ndarray (1D)"),
+
+    # TRANSFORM — math / linear algebra
+    "dot":          ("transform", "Computes the dot product — for 2D arrays this is matrix multiplication.", "ndarray, ndarray", "ndarray"),
+    "matmul":       ("transform", "Performs matrix multiplication of two arrays.", "ndarray, ndarray", "ndarray"),
+    "cross":        ("transform", "Computes the cross product of two vectors.", "ndarray, ndarray", "ndarray"),
+    "outer":        ("transform", "Computes the outer product of two vectors.", "ndarray, ndarray", "ndarray (2D)"),
+    "inner":        ("transform", "Computes the inner product of two arrays.", "ndarray, ndarray", "scalar/ndarray"),
+    "exp":          ("transform", "Computes element-wise natural exponential e^x.", "ndarray", "ndarray"),
+    "log":          ("transform", "Computes element-wise natural logarithm.", "ndarray", "ndarray"),
+    "sqrt":         ("transform", "Computes element-wise square root.", "ndarray", "ndarray"),
+    "abs":          ("transform", "Computes element-wise absolute value.", "ndarray", "ndarray"),
+    "power":        ("transform", "Raises array elements to the given power.", "ndarray, scalar", "ndarray"),
+    "linalg.norm":  ("transform", "Computes the magnitude (length) of a vector or matrix norm.", "ndarray", "scalar"),
+    "linalg.inv":   ("transform", "Computes the multiplicative inverse of a square matrix.", "ndarray", "ndarray"),
+    "linalg.eig":   ("transform", "Computes eigenvalues and right eigenvectors of a square array.", "ndarray", "(ndarray, ndarray)"),
+
+    # AGGREGATE — reductions
+    "sum":          ("aggregate", "Computes the sum across the array or along an axis.", "ndarray", "scalar/ndarray"),
+    "mean":         ("aggregate", "Computes the average value across the array or along an axis.", "ndarray", "scalar/ndarray"),
+    "std":          ("aggregate", "Computes the standard deviation — measures how spread out the values are.", "ndarray", "scalar/ndarray"),
+    "var":          ("aggregate", "Computes the variance across the array or along an axis.", "ndarray", "scalar/ndarray"),
+    "min":          ("aggregate", "Returns the minimum value across the array or along an axis.", "ndarray", "scalar/ndarray"),
+    "max":          ("aggregate", "Returns the maximum value across the array or along an axis.", "ndarray", "scalar/ndarray"),
+    "argmin":       ("aggregate", "Returns the index of the minimum value along an axis.", "ndarray", "ndarray (indices)"),
+    "argmax":       ("aggregate", "Returns the index of the maximum value along an axis.", "ndarray", "ndarray (indices)"),
+    "median":       ("aggregate", "Computes the median value along an axis.", "ndarray", "scalar/ndarray"),
+    "percentile":   ("aggregate", "Computes the q-th percentile of the data along an axis.", "ndarray", "scalar/ndarray"),
+
+    # FILTER — masking / selection
+    "where":        ("filter", "Returns elements from one array or another based on a condition — like a vectorized if/else.", "ndarray", "ndarray"),
+    "clip":         ("filter", "Constrains all values to stay within [min, max] — useful for gradient clipping.", "ndarray", "ndarray (clipped)"),
+    "nonzero":      ("filter", "Returns the indices of non-zero elements.", "ndarray", "tuple[ndarray]"),
+    "extract":      ("filter", "Returns elements of an array satisfying a condition.", "ndarray", "ndarray (1D)"),
+
+    # MERGE — combining
+    "concatenate":  ("merge", "Joins multiple arrays together along a specified axis.", "list[ndarray]", "ndarray"),
+    "stack":        ("merge", "Joins arrays along a new axis.", "list[ndarray]", "ndarray"),
+    "vstack":       ("merge", "Stacks arrays vertically (row-wise).", "list[ndarray]", "ndarray"),
+    "hstack":       ("merge", "Stacks arrays horizontally (column-wise).", "list[ndarray]", "ndarray"),
+    "dstack":       ("merge", "Stacks arrays along the third axis (depth).", "list[ndarray]", "ndarray"),
+    "block":        ("merge", "Assembles arrays from blocks specified by a nested list.", "nested list[ndarray]", "ndarray"),
+    "append":       ("merge", "Appends values to the end of an array.", "ndarray, ndarray", "ndarray"),
+
+    # OUTPUT — saving / exporting
+    "save":             ("output", "Saves an array to a binary .npy file.", "ndarray", "None"),
+    "savez":            ("output", "Saves several arrays into a single .npz archive.", "ndarray(s)", "None"),
+    "savetxt":          ("output", "Saves an array to a text file.", "ndarray", "None"),
+    "set_printoptions": ("output", "Configures how NumPy arrays are printed.", None, "None"),
+}
+
+# Per-category emitted FlowNodeType (re-uses the existing visual system).
+_NUMPY_CAT_TO_TYPE = {
+    "data_source": "input",
+    "output":      "output",
+    "transform":   "pytorch",     # blue parallelogram via existing OP_TO_CATEGORY
+    "aggregate":   "pytorch",     # purple via OP_TO_CATEGORY
+    "filter":      "pandas",      # coral via OP_TO_CATEGORY
+    "merge":       "pandas",      # gold via OP_TO_CATEGORY
+}
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -206,13 +298,20 @@ def detect_framework(code: str) -> str:
         "torch" in code or "nn." in code or "F." in code
         or "tensor" in code.lower() or "Dataset" in code or "DataLoader" in code
     )
+    has_numpy = "numpy" in code or "np." in code
     if has_pandas and has_pytorch:
-        return "mixed"
-    if has_pandas:
-        return "pandas"
-    if has_pytorch:
-        return "pytorch"
-    return "unknown"
+        base = "mixed"
+    elif has_pandas:
+        base = "pandas"
+    elif has_pytorch:
+        base = "pytorch"
+    elif has_numpy:
+        return "numpy"
+    else:
+        return "unknown"
+    if has_numpy:
+        return f"{base}+numpy"
+    return base
 
 
 def _safe_unparse(node) -> str:
@@ -722,6 +821,204 @@ def _layout(nodes: list[dict]):
 
 
 # ---------------------------------------------------------------------------
+# NumPy parser (additive — runs alongside existing pandas/pytorch parsing)
+# ---------------------------------------------------------------------------
+
+_NUMPY_ROOT_NAMES = {"np", "numpy"}
+
+
+def is_numpy_code(tree: ast.AST) -> bool:
+    """Detects whether the AST contains NumPy usage.
+
+    Looks for `import numpy` (with or without alias), `from numpy import ...`,
+    or any attribute access whose root value is a Name `np` or `numpy`.
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "numpy" or alias.name.startswith("numpy."):
+                    return True
+        elif isinstance(node, ast.ImportFrom):
+            mod = node.module or ""
+            if mod == "numpy" or mod.startswith("numpy."):
+                return True
+        elif isinstance(node, ast.Attribute):
+            v = node.value
+            if isinstance(v, ast.Name) and v.id in _NUMPY_ROOT_NAMES:
+                return True
+            if isinstance(v, ast.Attribute):
+                root = v.value
+                while isinstance(root, ast.Attribute):
+                    root = root.value
+                if isinstance(root, ast.Name) and root.id in _NUMPY_ROOT_NAMES:
+                    return True
+    return False
+
+
+def _np_chain_op(func: ast.AST) -> Optional[str]:
+    """For an Attribute func whose root is `np`/`numpy`, return the op name.
+
+    Returns the simple op name (e.g. "reshape" for np.reshape, "rand" for
+    np.random.rand). For namespaced ops we also return a dotted variant
+    (e.g. "linalg.norm") so callers can prefer the more specific entry.
+    """
+    if not isinstance(func, ast.Attribute):
+        return None
+    parts: list[str] = [func.attr]
+    cur: ast.AST = func.value
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if not (isinstance(cur, ast.Name) and cur.id in _NUMPY_ROOT_NAMES):
+        return None
+    parts.reverse()  # e.g. ["linalg", "norm"] or ["random", "rand"]
+    if len(parts) >= 2:
+        dotted = ".".join(parts)
+        if dotted in NUMPY_OPS:
+            return dotted
+    return parts[-1]
+
+
+def _np_shape_annotation(op: str, call: ast.Call) -> Optional[str]:
+    """Extracts a simple, literal-only shape annotation for known numpy ops.
+
+    Returns None when nothing can be inferred without evaluating variables.
+    """
+    def lit_tuple(node: ast.AST) -> Optional[str]:
+        # Accept ast.Tuple or ast.List of constants
+        if isinstance(node, (ast.Tuple, ast.List)):
+            elts = []
+            for e in node.elts:
+                if isinstance(e, ast.Constant):
+                    elts.append(repr(e.value) if isinstance(e.value, str) else str(e.value))
+                else:
+                    return None
+            return "(" + ", ".join(elts) + ")"
+        return None
+
+    if op in {"reshape", "resize"}:
+        # np.reshape(arr, (x, y)) OR np.reshape(arr, x, y)
+        if len(call.args) >= 2:
+            shape = lit_tuple(call.args[1])
+            if shape:
+                return f"→ shape {shape}"
+            # Multi-positional integers form: np.reshape(arr, x, y)
+            rest = call.args[1:]
+            if all(isinstance(a, ast.Constant) and isinstance(a.value, int) for a in rest):
+                vals = ", ".join(str(a.value) for a in rest)
+                return f"→ shape ({vals})"
+        return "shape: dynamic"
+
+    if op in {"zeros", "ones", "empty", "full", "zeros_like", "ones_like"}:
+        if call.args:
+            shape = lit_tuple(call.args[0])
+            if shape:
+                return f"shape: {shape}"
+            if isinstance(call.args[0], ast.Constant) and isinstance(call.args[0].value, int):
+                return f"shape: ({call.args[0].value},)"
+        return "shape: dynamic"
+
+    if op in {"concatenate", "stack", "vstack", "hstack", "dstack"}:
+        # axis kwarg or positional
+        axis_val: Optional[str] = None
+        for kw in call.keywords:
+            if kw.arg == "axis" and isinstance(kw.value, ast.Constant):
+                axis_val = str(kw.value.value)
+        if axis_val is None and len(call.args) >= 2 and isinstance(call.args[1], ast.Constant):
+            axis_val = str(call.args[1].value)
+        if axis_val is not None:
+            tag = {"0": "rows", "1": "cols"}.get(axis_val, f"axis {axis_val}")
+            return f"axis={axis_val} ({tag})"
+        return None
+
+    if op == "transpose":
+        return "axes reversed"
+
+    return None
+
+
+def parse_numpy_nodes(tree: ast.AST, source_lines: list[str]) -> list[dict]:
+    """Detects NumPy operations and returns FlowNode-shaped dicts.
+
+    Called separately, never replaces existing parsers. Walks the entire
+    AST and emits one node per recognized numpy call (including nested
+    calls, e.g. `np.clip(np.std(...))` produces both nodes). Boolean
+    indexing patterns like `arr[arr > 0]` are emitted as FILTER nodes.
+    """
+    nodes: list[dict] = []
+    seen_calls: set[int] = set()
+
+    def emit(op: str, call: Optional[ast.Call], *, override_label: Optional[str] = None,
+             override_desc: Optional[str] = None) -> None:
+        meta = NUMPY_OPS.get(op)
+        if meta is None:
+            return
+        category, desc, in_s, out_s = meta
+        ntype = _NUMPY_CAT_TO_TYPE.get(category, "intermediate")
+        if call is not None:
+            args_repr = _format_call_args(call, max_len=24)
+            label = f"np.{op}({args_repr})" if args_repr else f"np.{op}()"
+        else:
+            label = f"np.{op}"
+        label = override_label or _truncate(label, 36)
+        annotation = _np_shape_annotation(op, call) if call is not None else None
+        if annotation:
+            shown_out = f"{out_s} · {annotation}" if out_s else annotation
+        else:
+            shown_out = out_s
+        nodes.append({
+            "id": f"numpy_{len(nodes)}",
+            "type": ntype,
+            "label": label,
+            "description": override_desc or desc,
+            "input_shape": in_s,
+            "output_shape": shown_out,
+            "position_x": 0,
+            "position_y": 0,
+            "group": None,
+            "_lineno": getattr(call, "lineno", 0) if call is not None else 0,
+            "_col": getattr(call, "col_offset", 0) if call is not None else 0,
+        })
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            if id(node) in seen_calls:
+                continue
+            op = _np_chain_op(node.func)
+            if op and op in NUMPY_OPS:
+                seen_calls.add(id(node))
+                emit(op, node)
+        elif isinstance(node, ast.Subscript):
+            # Boolean indexing: arr[arr > 0] / arr[mask] where mask is a comparison
+            slc = node.slice
+            inner = slc.value if isinstance(slc, ast.Index) else slc  # py<3.9 compat
+            if isinstance(inner, (ast.Compare, ast.BoolOp, ast.UnaryOp)):
+                arr_repr = _truncate(_safe_unparse(node.value), 20) or "arr"
+                cond_repr = _truncate(_safe_unparse(inner), 24)
+                desc = "Boolean indexing — selects elements where the condition is True."
+                nodes.append({
+                    "id": f"numpy_{len(nodes)}",
+                    "type": "pandas",  # FILTER bucket via existing OP_TO_CATEGORY
+                    "label": _truncate(f"{arr_repr}[{cond_repr}]", 36),
+                    "description": desc,
+                    "input_shape": "ndarray",
+                    "output_shape": "ndarray (filtered)",
+                    "position_x": 0,
+                    "position_y": 0,
+                    "group": None,
+                    "_lineno": getattr(node, "lineno", 0),
+                    "_col": getattr(node, "col_offset", 0),
+                })
+
+    # Sort by source position so the appended block reads top-to-bottom.
+    nodes.sort(key=lambda n: (n.pop("_lineno", 0), n.pop("_col", 0)))
+    # Re-id sequentially to keep ids stable.
+    for i, n in enumerate(nodes):
+        n["id"] = f"numpy_{i}"
+    return nodes
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -742,6 +1039,33 @@ def parse_python_code(code: str) -> dict:
     flat_extractor.parse(code)
     flat_nodes = flat_extractor.builder.nodes
     flat_edges = flat_extractor.builder.edges
+
+    # Additive: append numpy nodes if numpy is detected.
+    # This runs ALONGSIDE existing parsing — the pandas/pytorch logic above
+    # is untouched, and we never delete nodes it produced. We only append
+    # the new numpy-categorized nodes after the existing list and add a
+    # single connecting edge so they form a continuous flow.
+    if is_numpy_code(tree):
+        source_lines = code.splitlines()
+        np_nodes = parse_numpy_nodes(tree, source_lines)
+        if np_nodes:
+            if flat_nodes:
+                # Connect last existing node to the first numpy node.
+                last_id = flat_nodes[-1]["id"]
+                flat_edges.append({
+                    "id": f"edge_{last_id}_{np_nodes[0]['id']}",
+                    "source": last_id,
+                    "target": np_nodes[0]["id"],
+                })
+            # Sequential edges among the appended numpy nodes.
+            for a, b in zip(np_nodes, np_nodes[1:]):
+                flat_edges.append({
+                    "id": f"edge_{a['id']}_{b['id']}",
+                    "source": a["id"],
+                    "target": b["id"],
+                })
+            flat_nodes.extend(np_nodes)
+
     _layout(flat_nodes)
 
     # Hierarchical view — Level 1 blocks

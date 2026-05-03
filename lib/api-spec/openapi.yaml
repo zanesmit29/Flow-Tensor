@@ -291,7 +291,7 @@ components:
             $ref: "#/components/schemas/FlowEdge"
         framework:
           type: string
-          enum: [pandas, pytorch, mixed, unknown]
+          enum: [pandas, pytorch, mixed, unknown, numpy, pandas+numpy, pytorch+numpy, mixed+numpy]
           description: Detected framework in the code
         level:
           type: integer
