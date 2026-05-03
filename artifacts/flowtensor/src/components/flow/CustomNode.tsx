@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { FlowNodeType } from "@workspace/api-client-react";
 import { getShapeMeta } from "@/lib/shapeMap";
 import { SHAPE_COMPONENTS } from "./shapes/Shapes";
+import { useAISettings } from "@/contexts/AISettingsContext";
 
 interface CustomNodeData {
   type: FlowNodeType;
@@ -24,6 +25,7 @@ const NODE_H = 92;
 function CustomNodeComponent({ data, isConnectable }: { data: CustomNodeData; isConnectable: boolean }) {
   const meta = getShapeMeta(data.label, data.type);
   const Shape = SHAPE_COMPONENTS[meta.category];
+  const { hasKey } = useAISettings();
 
   const isActive = !!data.isActive;
   const isDimmed = !!data.isDimmed;
@@ -74,6 +76,16 @@ function CustomNodeComponent({ data, isConnectable }: { data: CustomNodeData; is
           )}
 
           <Shape width={NODE_W} height={NODE_H} color={meta.color} />
+
+          {/* AI badge — shown on hover. Muted when no key is configured. */}
+          <span
+            aria-hidden
+            className="absolute top-1.5 right-2 text-[12px] leading-none font-bold opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none select-none"
+            style={{ color: hasKey ? meta.color : "rgba(255,255,255,0.3)" }}
+            data-testid={`ai-badge-${data.index ?? 0}`}
+          >
+            ✦
+          </span>
 
           <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
             <span

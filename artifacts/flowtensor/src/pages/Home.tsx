@@ -5,10 +5,14 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { useParseCode } from '@workspace/api-client-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Play, Sparkles } from 'lucide-react';
+import { Loader2, Play, Sparkles, Settings as SettingsIcon } from 'lucide-react';
 import GraphCanvas from '@/components/flow/GraphCanvas';
 import ExamplesPanel from '@/components/ExamplesPanel';
 import GitHubImport from '@/components/GitHubImport';
+import SettingsModal from '@/components/SettingsModal';
+import AIPanel, { type AINodeContext } from '@/components/AIPanel';
+import { useAISettings } from '@/contexts/AISettingsContext';
+import type { FlowNode as ApiFlowNode } from '@workspace/api-client-react';
 import { type Example } from '@/data/examples';
 
 type InputMode = 'paste' | 'github';
@@ -95,6 +99,13 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false);
   const [hasVisualized, setHasVisualized] = useState(false);
   const [mode, setMode] = useState<InputMode>(initialGithub ? 'github' : 'paste');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aiContext, setAiContext] = useState<AINodeContext | null>(null);
+  const { hasKey } = useAISettings();
+
+  const handleNodeClick = useCallback((node: ApiFlowNode) => {
+    setAiContext({ node, surroundingContext: code, library: undefined });
+  }, [code]);
 
   useEffect(() => {
     const onHash = () => {
@@ -222,7 +233,7 @@ export default function Home() {
             </div>
           </button>
 
-          {/* Examples button */}
+          {/* Examples + Settings buttons */}
           <div className="flex items-center gap-2">
             <motion.button
               whileHover={{ scale: 1.03 }}
@@ -236,6 +247,23 @@ export default function Home() {
             >
               <Sparkles className="w-3.5 h-3.5" />
               Examples
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Open settings"
+              data-testid="btn-open-settings"
+              className={`relative flex items-center justify-center w-8 h-8 rounded-lg border transition-all ${
+                hasKey
+                  ? 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+                  : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              <SettingsIcon className="w-4 h-4" />
+              {hasKey && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
+              )}
             </motion.button>
           </div>
         </div>
@@ -363,8 +391,19 @@ export default function Home() {
         <GraphCanvas
           data={parseMutation.data}
           isPending={parseMutation.isPending}
+          onNodeClick={handleNodeClick}
+        />
+        <AIPanel
+          context={aiContext}
+          onClose={() => setAiContext(null)}
+          onOpenSettings={() => {
+            setAiContext(null);
+            setSettingsOpen(true);
+          }}
         />
       </div>
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes shimmer {

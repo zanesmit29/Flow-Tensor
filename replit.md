@@ -35,6 +35,15 @@ pnpm workspace monorepo using TypeScript. Contains the FlowTensor app — a web 
 - `POST /api/parse` — parses Python code (PyTorch/Pandas) and returns:
   - flat `nodes`/`edges` (legacy linear view)
   - hierarchical `blocks` (Level 1: classes, top-level functions, module main) with `children` containing per-method node graphs (Level 3). Frontend uses these for drill-down navigation.
+- `POST /api/explain-node` — generates context-aware AI explanation for a node via Groq (`llama3-8b-8192`). Returns `{source: "ai" | "static", what?, impact?, tip?, risk?, cached}`. Falls back silently to `static` when no key is configured or any error occurs. Cached in-memory by `(operation, parameters, shape_before, level)`.
+- `POST /api/set-groq-key` / `GET /api/groq-key-status` — manage user-supplied Groq key for the current backend session (stored in memory only, never persisted). Priority: user key → `GROQ_API_KEY` env var → none.
+
+## AI Explainer (frontend)
+
+- `src/contexts/AISettingsContext.tsx` — provides `hasKey`, `source`, `explanationCount`, `saveKey`, `refreshStatus`.
+- `src/components/SettingsModal.tsx` — gear-icon modal with masked key input, debounced live validation (`https://api.groq.com/openai/v1/models`), and session counter.
+- `src/components/AIPanel.tsx` — slide-in right panel (340px) opened on Level 3 node click; shows WHAT/IMPACT/TIP/RISK sections, three audience levels (beginner/intermediate/pro), "Explain differently" reload, no-key CTA fallback.
+- `CustomNode.tsx` shows a hover-only ✦ badge, muted when no key is configured.
 
 ## Key Commands
 

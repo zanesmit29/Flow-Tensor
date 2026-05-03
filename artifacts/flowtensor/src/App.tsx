@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import Landing from "@/pages/Landing";
+import { AISettingsProvider } from "@/contexts/AISettingsContext";
 
 const queryClient = new QueryClient();
 
@@ -68,10 +69,12 @@ function HashGate() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <HashGate />
-        <Toaster />
-      </TooltipProvider>
+      <AISettingsProvider>
+        <TooltipProvider>
+          <HashGate />
+          <Toaster />
+        </TooltipProvider>
+      </AISettingsProvider>
     </QueryClientProvider>
   );
 }

@@ -38,6 +38,7 @@ const IMAGE_HEIGHT = 630;
 interface GraphCanvasProps {
   data?: ParseResponse;
   isPending: boolean;
+  onNodeClick?: (node: ApiFlowNode) => void;
 }
 
 type Level = 1 | 2 | 3;
@@ -56,7 +57,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
   );
 }
 
-function GraphCanvasInner({ data, isPending }: GraphCanvasProps) {
+function GraphCanvasInner({ data, isPending, onNodeClick }: GraphCanvasProps) {
   const blocks: FlowBlock[] = data?.blocks ?? [];
   const hasBlocks = blocks.length > 0;
 
@@ -193,6 +194,7 @@ function GraphCanvasInner({ data, isPending }: GraphCanvasProps) {
               edges={level3Edges}
               framework={data?.framework}
               scopeLabel={selectedChild ? `${selectedBlock?.name ?? ''}.${selectedChild.name}` : undefined}
+              onNodeClick={onNodeClick}
             />
           </motion.div>
         )}
@@ -302,9 +304,10 @@ interface Level3FlowProps {
   edges: ApiFlowEdge[];
   framework?: string;
   scopeLabel?: string;
+  onNodeClick?: (node: ApiFlowNode) => void;
 }
 
-function Level3Flow({ nodes: apiNodes, edges: apiEdges, framework, scopeLabel }: Level3FlowProps) {
+function Level3Flow({ nodes: apiNodes, edges: apiEdges, framework, scopeLabel, onNodeClick }: Level3FlowProps) {
   return (
     <ReactFlowProvider>
       <Level3FlowInner
@@ -312,12 +315,13 @@ function Level3Flow({ nodes: apiNodes, edges: apiEdges, framework, scopeLabel }:
         edges={apiEdges}
         framework={framework}
         scopeLabel={scopeLabel}
+        onNodeClick={onNodeClick}
       />
     </ReactFlowProvider>
   );
 }
 
-function Level3FlowInner({ nodes: apiNodes, edges: apiEdges, framework, scopeLabel }: Level3FlowProps) {
+function Level3FlowInner({ nodes: apiNodes, edges: apiEdges, framework, scopeLabel, onNodeClick }: Level3FlowProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowFlowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [isExporting, setIsExporting] = useState(false);
@@ -513,6 +517,11 @@ function Level3FlowInner({ nodes: apiNodes, edges: apiEdges, framework, scopeLab
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeClick={(_e, n) => {
+          if (!onNodeClick) return;
+          const apiNode = apiNodes.find((x) => x.id === n.id);
+          if (apiNode) onNodeClick(apiNode);
+        }}
         nodeTypes={nodeTypes}
         fitView
         className="bg-transparent"

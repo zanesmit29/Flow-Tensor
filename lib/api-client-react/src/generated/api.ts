@@ -17,14 +17,18 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ExplainNodeRequest,
   FetchFileRequest,
   FetchRepoRequest,
+  GroqKeyStatus,
   HealthStatus,
+  NodeExplanation,
   ParseError,
   ParseRequest,
   ParseResponse,
   RepoBrowseResult,
   RepoFileResult,
+  SetGroqKeyRequest,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -372,3 +376,252 @@ export const useFetchFile = <
 > => {
   return useMutation(getFetchFileMutationOptions(options));
 };
+
+/**
+ * Uses Groq (llama3-8b-8192) to produce a context-aware explanation for a specific operation node.
+ * @summary Generate an AI explanation for a node
+ */
+export const getExplainNodeUrl = () => {
+  return `/api/explain-node`;
+};
+
+export const explainNode = async (
+  explainNodeRequest: ExplainNodeRequest,
+  options?: RequestInit,
+): Promise<NodeExplanation> => {
+  return customFetch<NodeExplanation>(getExplainNodeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(explainNodeRequest),
+  });
+};
+
+export const getExplainNodeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof explainNode>>,
+    TError,
+    { data: BodyType<ExplainNodeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof explainNode>>,
+  TError,
+  { data: BodyType<ExplainNodeRequest> },
+  TContext
+> => {
+  const mutationKey = ["explainNode"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof explainNode>>,
+    { data: BodyType<ExplainNodeRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return explainNode(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExplainNodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof explainNode>>
+>;
+export type ExplainNodeMutationBody = BodyType<ExplainNodeRequest>;
+export type ExplainNodeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate an AI explanation for a node
+ */
+export const useExplainNode = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof explainNode>>,
+    TError,
+    { data: BodyType<ExplainNodeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof explainNode>>,
+  TError,
+  { data: BodyType<ExplainNodeRequest> },
+  TContext
+> => {
+  return useMutation(getExplainNodeMutationOptions(options));
+};
+
+/**
+ * Stores the user-provided Groq API key in backend memory only (never persisted to disk).
+ * @summary Save a Groq API key for the current backend session
+ */
+export const getSetGroqKeyUrl = () => {
+  return `/api/set-groq-key`;
+};
+
+export const setGroqKey = async (
+  setGroqKeyRequest: SetGroqKeyRequest,
+  options?: RequestInit,
+): Promise<GroqKeyStatus> => {
+  return customFetch<GroqKeyStatus>(getSetGroqKeyUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setGroqKeyRequest),
+  });
+};
+
+export const getSetGroqKeyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setGroqKey>>,
+    TError,
+    { data: BodyType<SetGroqKeyRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setGroqKey>>,
+  TError,
+  { data: BodyType<SetGroqKeyRequest> },
+  TContext
+> => {
+  const mutationKey = ["setGroqKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setGroqKey>>,
+    { data: BodyType<SetGroqKeyRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setGroqKey(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetGroqKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setGroqKey>>
+>;
+export type SetGroqKeyMutationBody = BodyType<SetGroqKeyRequest>;
+export type SetGroqKeyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save a Groq API key for the current backend session
+ */
+export const useSetGroqKey = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setGroqKey>>,
+    TError,
+    { data: BodyType<SetGroqKeyRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setGroqKey>>,
+  TError,
+  { data: BodyType<SetGroqKeyRequest> },
+  TContext
+> => {
+  return useMutation(getSetGroqKeyMutationOptions(options));
+};
+
+/**
+ * @summary Check whether a Groq key is currently configured
+ */
+export const getGroqKeyStatusUrl = () => {
+  return `/api/groq-key-status`;
+};
+
+export const groqKeyStatus = async (
+  options?: RequestInit,
+): Promise<GroqKeyStatus> => {
+  return customFetch<GroqKeyStatus>(getGroqKeyStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGroqKeyStatusQueryKey = () => {
+  return [`/api/groq-key-status`] as const;
+};
+
+export const getGroqKeyStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof groqKeyStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof groqKeyStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGroqKeyStatusQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof groqKeyStatus>>> = ({
+    signal,
+  }) => groqKeyStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof groqKeyStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GroqKeyStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof groqKeyStatus>>
+>;
+export type GroqKeyStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Check whether a Groq key is currently configured
+ */
+
+export function useGroqKeyStatus<
+  TData = Awaited<ReturnType<typeof groqKeyStatus>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof groqKeyStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGroqKeyStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

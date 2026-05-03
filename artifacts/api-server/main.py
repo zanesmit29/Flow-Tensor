@@ -1,15 +1,19 @@
 import os
 import re
 import base64
+import hashlib
 import urllib.parse
 import urllib.request
 import urllib.error
 import json
+from typing import Any, Literal
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from parser_ast import parse_python_code, ParseError
+
+# Get a free Groq API key at console.groq.com/keys
 
 app = FastAPI(title="FlowTensor API", version="0.1.0")
 
@@ -121,6 +125,173 @@ def _walk_repo(
 @app.get("/api/healthz")
 def health_check():
     return {"status": "ok"}
+
+
+# ──────────────────────────────────────────────────────────────────────
+# AI Explainer (Groq)
+# ──────────────────────────────────────────────────────────────────────
+
+GROQ_MODEL = "llama3-8b-8192"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+# Backend session state — never persisted to disk
+_groq_state: dict = {"user_key": None, "explanation_count": 0}
+_groq_cache: dict[str, dict] = {}
+
+
+class ExplainNodeRequestModel(BaseModel):
+    operation: str
+    parameters: dict[str, Any] | None = None
+    shape_before: str | None = None
+    shape_after: str | None = None
+    variable_name: str | None = None
+    library: str | None = None
+    surrounding_context: str | None = None
+    level: Literal["beginner", "intermediate", "pro"]
+
+
+class SetGroqKeyRequestModel(BaseModel):
+    key: str
+
+
+def _active_groq_key() -> tuple[str | None, str]:
+    user_key = _groq_state.get("user_key")
+    if user_key:
+        return user_key, "user"
+    env_key = os.environ.get("GROQ_API_KEY")
+    if env_key:
+        return env_key, "env"
+    return None, "none"
+
+
+def _groq_cache_key(req: "ExplainNodeRequestModel") -> str:
+    raw = "::".join(
+        [
+            req.operation,
+            json.dumps(req.parameters or {}, sort_keys=True),
+            req.shape_before or "",
+            req.shape_after or "",
+            req.variable_name or "",
+            req.library or "",
+            hashlib.sha256((req.surrounding_context or "").encode("utf-8")).hexdigest(),
+            req.level,
+        ]
+    )
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+_GROQ_SYSTEM_PROMPT = """You are an expert data science mentor embedded in a code visualization tool called FlowTensor.
+Explain what a specific operation does in a practical, insightful way — not generically, but for THIS specific code.
+Be concise. Plain English. Max 4 sentences total.
+Always respond with valid JSON using exactly these keys:
+{
+  "what": "1 sentence — what this does in this specific context",
+  "impact": "1 sentence — what it means for the data, reference actual numbers",
+  "tip": "1 sentence — a practical tip specific to this situation",
+  "risk": "1 sentence — only include if there is a real risk, else omit this key"
+}"""
+
+
+def _level_hint(level: str) -> str:
+    if level == "beginner":
+        return "Audience: beginner — use plain English, analogies, no jargon."
+    if level == "pro":
+        return "Audience: pro — terse, precise, mention edge cases and performance implications."
+    return "Audience: intermediate — practical focus, assume Python/ML knowledge."
+
+
+def _build_user_prompt(req: ExplainNodeRequestModel) -> str:
+    return (
+        f"{_level_hint(req.level)}\n\n"
+        f"Operation: {req.operation}({json.dumps(req.parameters or {})})\n"
+        f"Library: {req.library or 'unknown'}\n"
+        f"Data before: {req.shape_before or 'unknown'}\n"
+        f"Data after: {req.shape_after or 'unknown'}\n"
+        f"Variable: {req.variable_name or 'unknown'}\n"
+        f"Surrounding code:\n{req.surrounding_context or '(not provided)'}"
+    )
+
+
+def _static_explanation() -> dict:
+    return {"source": "static", "cached": False}
+
+
+@app.post("/api/explain-node")
+def explain_node(req: ExplainNodeRequestModel):
+    key, _ = _active_groq_key()
+    if not key:
+        # Silent fallback — caller renders no-key panel state
+        return _static_explanation()
+
+    ck = _groq_cache_key(req)
+    cached = _groq_cache.get(ck)
+    if cached is not None:
+        return {"source": "ai", "cached": True, **cached}
+
+    payload = {
+        "model": GROQ_MODEL,
+        "messages": [
+            {"role": "system", "content": _GROQ_SYSTEM_PROMPT},
+            {"role": "user", "content": _build_user_prompt(req)},
+        ],
+        "max_tokens": 300,
+        "temperature": 0.3,
+        "response_format": {"type": "json_object"},
+    }
+
+    try:
+        request = urllib.request.Request(
+            GROQ_URL,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        # Never crash — fall back silently to static
+        return _static_explanation()
+
+    content = ""
+    try:
+        content = data["choices"][0]["message"]["content"] or ""
+    except Exception:
+        return _static_explanation()
+
+    try:
+        parsed = json.loads(content)
+    except Exception:
+        return _static_explanation()
+
+    cleaned = {k: parsed[k] for k in ("what", "impact", "tip", "risk") if k in parsed and parsed[k]}
+    _groq_cache[ck] = cleaned
+    _groq_state["explanation_count"] += 1
+    return {"source": "ai", "cached": False, **cleaned}
+
+
+@app.post("/api/set-groq-key")
+def set_groq_key(req: SetGroqKeyRequestModel):
+    trimmed = (req.key or "").strip()
+    _groq_state["user_key"] = trimmed if trimmed else None
+    key, source = _active_groq_key()
+    return {
+        "has_key": bool(key),
+        "source": source,
+        "explanation_count": _groq_state["explanation_count"],
+    }
+
+
+@app.get("/api/groq-key-status")
+def groq_key_status():
+    key, source = _active_groq_key()
+    return {
+        "has_key": bool(key),
+        "source": source,
+        "explanation_count": _groq_state["explanation_count"],
+    }
 
 
 @app.post("/api/parse")
