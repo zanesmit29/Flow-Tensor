@@ -181,7 +181,17 @@ export default function Home() {
         {/* Navbar */}
         <div className="relative flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#1a1d24]/50 backdrop-blur-md">
           {/* Logo + Title */}
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.location.hash) {
+                history.pushState('', document.title, window.location.pathname + window.location.search);
+                window.dispatchEvent(new HashChangeEvent('hashchange'));
+              }
+            }}
+            className="flex items-center gap-3 rounded-lg p-1 -m-1 hover:bg-white/5 transition-colors"
+            aria-label="Back to landing page"
+          >
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20">
               <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
@@ -189,11 +199,11 @@ export default function Home() {
                 <line x1="12" y1="22.08" x2="12" y2="12" />
               </svg>
             </div>
-            <div>
+            <div className="text-left">
               <h1 className="font-bold text-lg tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">FlowTensor</h1>
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Graph Visualizer</p>
             </div>
-          </div>
+          </button>
 
           {/* Examples button */}
           <div className="flex items-center gap-2">
