@@ -1,0 +1,236 @@
+Add an AI Explainer feature to FlowTensor using the Groq API.
+When a user clicks any node, an AI explanation panel slides in
+with context-aware insights about that specific operation.
+
+Groq is used instead of OpenAI — it is faster (sub-second responses),
+free to start, and uses the same REST API pattern.
+
+--- SETUP ---
+
+Install the Groq SDK:
+pip install groq
+
+Add to requirements.txt:
+groq>=0.4.0
+
+Read the key with: os.environ.get("GROQ_API_KEY")
+
+If the key is not set, the feature degrades gracefully:
+fall back to the existing static tooltip text.
+Never crash or show an error — just silently use static tooltip.
+
+--- NEW BACKEND ENDPOINT ---
+
+POST /explain-node
+
+Request body:
+{
+  "operation": "dropna",
+  "parameters": { "subset": ["Age", "Embarked"] },
+  "shape_before": "1309 rows × 8 cols",
+  "shape_after": "1043 rows × 8 cols",
+  "variable_name": "df",
+  "library": "pandas",
+  "surrounding_context": "df = pd.read_csv('titanic.csv')\ndf = df.dropna(...)\ndf = df.fillna(...)",
+  "level": "intermediate"
+}
+
+Use the Groq SDK:
+
+from groq import Groq
+
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+
+completion = client.chat.completions.create(
+    model="llama3-8b-8192",
+    messages=[
+        { "role": "system", "content": system_prompt },
+        { "role": "user", "content": user_prompt }
+    ],
+    max_tokens=200,
+    temperature=0.3,
+    response_format={"type": "json_object"}
+)
+
+result = completion.choices[0].message.content
+
+System prompt:
+"""You are an expert data science mentor embedded in a code 
+visualization tool called FlowTensor.
+Explain what a specific operation does in a practical, 
+insightful way — not generically, but for THIS specific code.
+Be concise. Plain English. Max 4 sentences total.
+Always respond with valid JSON using exactly these keys:
+{
+  "what": "1 sentence — what this does in this specific context",
+  "impact": "1 sentence — what it means for the data, reference actual numbers",
+  "tip": "1 sentence — a practical tip specific to this situation",
+  "risk": "1 sentence — only include if there is a real risk, else omit this key"
+}"""
+
+User prompt:
+f"""
+Operation: {operation}({parameters})
+Library: {library}
+Data before: {shape_before}
+Data after: {shape_after}
+Variable: {variable_name}
+Surrounding code:
+{surrounding_context}
+"""
+
+Cache responses in a simple dict keyed by:
+hash(f"{operation}{str(parameters)}{shape_before}{level}")
+Prevents duplicate API calls for identical nodes.
+
+--- IN-APP CREDENTIAL INPUT ---
+
+Add a "🔑 Groq API Key" settings section accessible from 
+a gear icon (⚙️) in the top-right navbar.
+
+When clicked, show a settings modal:
+
+┌─────────────────────────────────────────────┐
+│  ⚙️ Settings                          [×]   │
+│  ───────────────────────────────────────    │
+│  AI Explainer                               │
+│                                             │
+│  Groq API Key                               │
+│  ┌─────────────────────────────────────┐   │
+│  │  gsk_••••••••••••••••••••••••••••   │   │
+│  └─────────────────────────────────────┘   │
+│  [input type="password" + 👁 toggle]        │
+│                                             │
+│  ● Valid key · llama3-8b-8192 ready  ✅    │
+│  (shown after validation)                   │
+│                                             │
+│  "Get a free Groq API key →"               │
+│  links to: console.groq.com/keys           │
+│                                             │
+│  ───────────────────────────────────────   │
+│  [✓] AI Explanations enabled               │
+│  Session: 12 explanations generated        │
+│                                             │
+│  [ Save ]                                  │
+└─────────────────────────────────────────────┘
+
+--- KEY STORAGE & SECURITY ---
+
+Store the Groq key in a JavaScript variable ONLY.
+Never localStorage, never sessionStorage 
+(Replit sandboxed iframes block these anyway).
+The key exists only for the current browser session.
+On page refresh the field is empty — this is intentional 
+and is a security feature. Tell the user this in small 
+muted text below the input:
+"Your key is never stored — re-enter on each session."
+
+When the user clicks Save:
+Send the key to the backend via:
+POST /set-groq-key
+{ "key": "gsk_abc123..." }
+
+Store it in a backend session variable (not to disk):
+app.state.groq_key = key
+
+In /explain-node, use priority:
+1. app.state.groq_key (user-provided via UI)
+2. os.environ.get("GROQ_API_KEY") (Replit Secret fallback)
+3. None → use static tooltip silently
+
+--- KEY VALIDATION ---
+
+After the user enters a key (debounce 800ms), 
+validate it with a lightweight test call:
+
+GET https://api.groq.com/openai/v1/models
+Headers: Authorization: Bearer {key}
+
+- 200 → show "✅ Valid key · llama3-8b-8192 ready"  (green)
+- 401 → show "❌ Invalid key — check and try again"  (red)
+- Any error → show "⚠️ Could not validate key"  (amber)
+
+--- FRONTEND: EXPLANATION PANEL ---
+
+When any node is clicked, show a sliding panel 
+(right side of canvas, 340px wide, full canvas height):
+
+┌─────────────────────────────────────────┐
+│  ✦ AI Insight              [×]          │
+│  ─────────────────────────────────────  │
+│  dropna() · FILTER                      │
+│                                         │
+│  WHAT                                   │
+│  Removes 266 rows where Age or          │
+│  Embarked contains a null value.        │
+│                                         │
+│  IMPACT                                 │
+│  You're losing 20.3% of your dataset — │
+│  significant for only 1,309 samples.   │
+│                                         │
+│  TIP                                    │
+│  Consider imputing Age with median     │
+│  instead — keeps ~177 more samples.    │
+│                                         │
+│  ⚠️ RISK                               │
+│  Dropping 177 Age nulls may introduce  │
+│  selection bias in your model.         │
+│                                         │
+│  ──────────────────────────────────    │
+│  [Beginner]  [Intermediate ✓]  [Pro]   │
+│  [ ↻ Explain differently ]             │
+└─────────────────────────────────────────┘
+
+Loading state: shimmer skeleton on the 4 text sections
+while waiting for Groq response (~300-500ms typically).
+
+--- NO KEY STATE ---
+
+If no Groq key is set (neither UI nor env var), 
+show the panel but with a CTA instead of AI content:
+
+┌─────────────────────────────────────────┐
+│  ✦ AI Insight              [×]          │
+│  ─────────────────────────────────────  │
+│  dropna() · FILTER                      │
+│                                         │
+│  [static tooltip text here]             │
+│                                         │
+│  ──────────────────────────────────    │
+│  ✦ Unlock AI explanations              │
+│  Add a free Groq API key in            │
+│  Settings to get context-aware         │
+│  insights for every node.              │
+│  [ ⚙️ Open Settings ]                  │
+└─────────────────────────────────────────┘
+
+--- EXPLANATION LEVELS ---
+
+[Beginner] [Intermediate] [Pro] buttons re-call 
+/explain-node with different level value.
+Cache all three levels separately per node.
+
+Beginner: plain English, analogies, no jargon
+Intermediate: practical focus, assumes Python/ML knowledge  
+Pro: terse, precise, edge cases, performance implications
+
+--- AI BADGE ON NODES ---
+
+Add a tiny "✦" badge top-right of each node,
+visible only on hover, in the accent color.
+Clicking anywhere on the node opens the panel.
+If no key is set, badge is muted/grey.
+
+--- CONSTRAINTS ---
+
+- Do not change any parsing or visualization logic
+- Panel overlays the canvas — does not resize it
+- Groq key from UI takes priority over env variable
+- gsk_ prefix validation: warn if key doesn't start with "gsk_"
+- Use llama3-8b-8192 model only (free tier, fastest)
+- Add a comment in the code:
+  # Get a free Groq API key at console.groq.com/keys
+
+Build and test /explain-node endpoint first.
+Confirm it returns valid JSON for a dropna() node 
+before building the frontend panel.
