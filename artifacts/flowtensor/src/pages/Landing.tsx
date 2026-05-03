@@ -98,7 +98,7 @@ export default function Landing({ onGetStarted }: LandingProps) {
           {...fadeUp(0.2)}
           className="mt-7 max-w-[520px] text-base sm:text-lg leading-relaxed text-white/60"
         >
-          Paste any PyTorch or Pandas code and instantly see an interactive graph of how
+          Paste any PyTorch, Pandas, or NumPy code and instantly see an interactive graph of how
           your data flows, transforms, and moves through every step.
         </motion.p>
 

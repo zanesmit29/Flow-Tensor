@@ -150,7 +150,7 @@ export default function Home() {
     if (!target.trim()) {
       toast({
         title: 'Empty code',
-        description: 'Please enter some PyTorch or Pandas code.',
+        description: 'Please enter some PyTorch, Pandas, or NumPy code.',
         variant: 'destructive',
       });
       return;

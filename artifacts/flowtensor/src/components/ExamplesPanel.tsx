@@ -23,11 +23,12 @@ interface ExamplesPanelProps {
   isTyping: boolean;
 }
 
-const GROUP_ORDER: ExampleGroup[] = ['PyTorch', 'Pandas / Data Prep'];
+const GROUP_ORDER: ExampleGroup[] = ['PyTorch', 'Pandas / Data Prep', 'NumPy'];
 
 const GROUP_ACCENT: Record<ExampleGroup, string> = {
   PyTorch: '#f97316',
   'Pandas / Data Prep': '#3b82f6',
+  NumPy: '#f59e0b',
 };
 
 export default function ExamplesPanel({

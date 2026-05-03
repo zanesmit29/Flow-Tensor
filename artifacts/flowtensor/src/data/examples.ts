@@ -1,6 +1,6 @@
-export type ExampleCategory = 'pandas' | 'pytorch';
+export type ExampleCategory = 'pandas' | 'pytorch' | 'numpy';
 export type Complexity = 'beginner' | 'intermediate' | 'advanced';
-export type ExampleGroup = 'PyTorch' | 'Pandas / Data Prep';
+export type ExampleGroup = 'PyTorch' | 'Pandas / Data Prep' | 'NumPy';
 
 export interface Example {
   id: string;
@@ -542,21 +542,133 @@ weekly = weekly.reset_index()
 weekly = weekly.rename(columns={"timestamp": "week_start"})
 `,
   },
+
+  // ── NumPy ─────────────────────────────────────────────────
+  {
+    id: 'numpy-preprocessing',
+    title: 'Array Preprocessing',
+    group: 'NumPy',
+    category: 'numpy',
+    steps: 9,
+    complexity: 'beginner',
+    code: `import numpy as np
+
+# Generate raw features and labels
+X = np.random.randn(1000, 20)
+y = np.random.randint(0, 2, size=(1000,))
+
+# Standardize columns (z-score)
+X_mean = np.mean(X, axis=0)
+X_std = np.std(X, axis=0)
+X_norm = (X - X_mean) / np.clip(X_std, 1e-8, None)
+
+# Reshape for downstream model
+X_reshaped = np.reshape(X_norm, (1000, 4, 5))
+
+# 80/20 split
+split = int(0.8 * len(X_reshaped))
+X_train = X_reshaped[:split]
+X_test = X_reshaped[split:]
+
+# One-hot encode labels
+y_onehot = np.zeros((len(y), 2))
+y_onehot[np.arange(len(y)), y] = 1
+
+# Persist arrays to disk
+np.save("X_train.npy", X_train)
+np.save("y_onehot.npy", y_onehot)
+`,
+  },
+  {
+    id: 'numpy-image-pipeline',
+    title: 'Image Array Pipeline',
+    group: 'NumPy',
+    category: 'numpy',
+    steps: 8,
+    complexity: 'intermediate',
+    whyComplex: 'Axis-aware ops and broadcasting can silently produce wrong shapes — visualizing each step helps catch off-by-one channel/axis bugs.',
+    code: `import numpy as np
+
+# Load a batch of grayscale images as raw float arrays
+images = np.load("images.npy")        # shape (N, 64, 64)
+labels = np.load("labels.npy")
+
+# Filter out blank frames (any pixel non-zero)
+mask = np.any(images > 0, axis=(1, 2))
+images = images[mask]
+labels = labels[mask]
+
+# Add a channel axis and stack RGB by repeating
+images = np.expand_dims(images, axis=-1)
+images = np.concatenate([images, images, images], axis=-1)
+
+# Normalize to [0, 1]
+images = images.astype(np.float32) / 255.0
+images = np.clip(images, 0.0, 1.0)
+
+# Random horizontal flip on half the batch
+flip_idx = np.random.choice(len(images), size=len(images) // 2, replace=False)
+images[flip_idx] = images[flip_idx, :, ::-1, :]
+
+# Save the prepared batch
+np.savez("batch.npz", images=images, labels=labels)
+`,
+  },
+  {
+    id: 'numpy-linalg',
+    title: 'Linear Algebra & PCA',
+    group: 'NumPy',
+    category: 'numpy',
+    steps: 9,
+    complexity: 'advanced',
+    whyComplex: 'PCA chains matrix ops (centering → covariance → eigendecomposition → projection); a single transposed axis derails the result.',
+    code: `import numpy as np
+
+# Sample feature matrix
+X = np.random.randn(500, 10)
+
+# Center features
+X_mean = np.mean(X, axis=0)
+X_centered = X - X_mean
+
+# Covariance matrix
+cov = np.matmul(X_centered.T, X_centered) / (len(X_centered) - 1)
+
+# Eigendecomposition for principal components
+eigvals, eigvecs = np.linalg.eig(cov)
+
+# Sort components by descending eigenvalue
+order = np.argsort(eigvals)[::-1]
+top_k = eigvecs[:, order[:3]]
+
+# Project data onto top components
+X_pca = np.matmul(X_centered, top_k)
+
+# Reconstruct approximation and measure error
+X_recon = np.matmul(X_pca, top_k.T) + X_mean
+error = np.linalg.norm(X - X_recon)
+
+np.save("pca_components.npy", top_k)
+`,
+  },
 ];
 
 export const EXAMPLES_BY_GROUP = {
   PyTorch: EXAMPLES.filter((e) => e.group === 'PyTorch'),
   'Pandas / Data Prep': EXAMPLES.filter((e) => e.group === 'Pandas / Data Prep'),
+  NumPy: EXAMPLES.filter((e) => e.group === 'NumPy'),
 };
 
 export const CATEGORY_COLORS: Record<ExampleCategory, string> = {
   pandas: '#3b82f6',
   pytorch: '#f97316',
+  numpy: '#f59e0b',
 };
 
 export const CATEGORY_LABELS: Record<ExampleCategory, string> = {
   pandas: 'Pandas',
   pytorch: 'PyTorch',
+  numpy: 'NumPy',
 };
 
 export const COMPLEXITY_CONFIG: Record<
