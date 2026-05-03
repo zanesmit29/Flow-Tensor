@@ -63,11 +63,20 @@ function GraphCanvasInner({ data, isPending }: GraphCanvasProps) {
 
       setNodes(newNodes);
       setEdges(newEdges);
+
+      // After nodes mount and React Flow measures their sizes,
+      // fit the viewport so all of them are visible.
+      // Two RAFs + small timeout = nodes have a measured width/height.
+      const t = setTimeout(() => {
+        fitView({ padding: 0.2, duration: 600, maxZoom: 1.2 });
+      }, 120);
+      return () => clearTimeout(t);
     } else {
       setNodes([]);
       setEdges([]);
     }
-  }, [data, setNodes, setEdges]);
+    return undefined;
+  }, [data, setNodes, setEdges, fitView]);
 
   const handleExport = async () => {
     if (isExporting) return;
