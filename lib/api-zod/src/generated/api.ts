@@ -75,3 +75,35 @@ export const ParseCodeResponse = zod.object({
     .enum(["pandas", "pytorch", "mixed", "unknown"])
     .describe("Detected framework in the code"),
 });
+
+/**
+ * Accepts a Gist URL, fetches the public Gist via the GitHub API, and returns its Python file(s).
+ * @summary Fetch a public GitHub Gist and return its Python files
+ */
+export const FetchGistBody = zod.object({
+  url: zod.string().describe("A public GitHub Gist URL"),
+});
+
+export const FetchGistResponse = zod.object({
+  code: zod
+    .string()
+    .nullable()
+    .describe(
+      "Raw file content. Present when a single .py file is auto-selected.",
+    ),
+  filename: zod
+    .string()
+    .nullable()
+    .describe("Filename of the auto-selected file. Present alongside `code`."),
+  files: zod
+    .array(
+      zod.object({
+        filename: zod.string(),
+        size: zod.number().describe("File size in bytes"),
+      }),
+    )
+    .nullable()
+    .describe(
+      "List of .py files when multiple are present and the user must choose.",
+    ),
+});

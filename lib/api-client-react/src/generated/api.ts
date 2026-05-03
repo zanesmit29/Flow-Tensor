@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  FetchGistRequest,
+  GistResult,
   HealthStatus,
   ParseError,
   ParseRequest,
@@ -193,4 +195,91 @@ export const useParseCode = <
   TContext
 > => {
   return useMutation(getParseCodeMutationOptions(options));
+};
+
+/**
+ * Accepts a Gist URL, fetches the public Gist via the GitHub API, and returns its Python file(s).
+ * @summary Fetch a public GitHub Gist and return its Python files
+ */
+export const getFetchGistUrl = () => {
+  return `/api/fetch-gist`;
+};
+
+export const fetchGist = async (
+  fetchGistRequest: FetchGistRequest,
+  options?: RequestInit,
+): Promise<GistResult> => {
+  return customFetch<GistResult>(getFetchGistUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(fetchGistRequest),
+  });
+};
+
+export const getFetchGistMutationOptions = <
+  TError = ErrorType<ParseError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof fetchGist>>,
+    TError,
+    { data: BodyType<FetchGistRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof fetchGist>>,
+  TError,
+  { data: BodyType<FetchGistRequest> },
+  TContext
+> => {
+  const mutationKey = ["fetchGist"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof fetchGist>>,
+    { data: BodyType<FetchGistRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return fetchGist(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FetchGistMutationResult = NonNullable<
+  Awaited<ReturnType<typeof fetchGist>>
+>;
+export type FetchGistMutationBody = BodyType<FetchGistRequest>;
+export type FetchGistMutationError = ErrorType<ParseError>;
+
+/**
+ * @summary Fetch a public GitHub Gist and return its Python files
+ */
+export const useFetchGist = <
+  TError = ErrorType<ParseError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof fetchGist>>,
+    TError,
+    { data: BodyType<FetchGistRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof fetchGist>>,
+  TError,
+  { data: BodyType<FetchGistRequest> },
+  TContext
+> => {
+  return useMutation(getFetchGistMutationOptions(options));
 };

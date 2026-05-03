@@ -20,12 +20,13 @@ function AppRoutes() {
 }
 
 function HashGate() {
+  const isAppHash = (h: string) => h === "#app" || h === "#app-gist";
   const [showApp, setShowApp] = useState(() =>
-    typeof window !== "undefined" && window.location.hash === "#app"
+    typeof window !== "undefined" && isAppHash(window.location.hash)
   );
 
   useEffect(() => {
-    const onHash = () => setShowApp(window.location.hash === "#app");
+    const onHash = () => setShowApp(isAppHash(window.location.hash));
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);

@@ -77,6 +77,26 @@ export interface ParseResponse {
   framework: ParseResponseFramework;
 }
 
+export interface FetchGistRequest {
+  /** A public GitHub Gist URL */
+  url: string;
+}
+
+export interface GistFile {
+  filename: string;
+  /** File size in bytes */
+  size: number;
+}
+
+export interface GistResult {
+  /** Raw file content. Present when a single .py file is auto-selected. */
+  code: string | null;
+  /** Filename of the auto-selected file. Present alongside `code`. */
+  filename: string | null;
+  /** List of .py files when multiple are present and the user must choose. */
+  files: GistFile[] | null;
+}
+
 export interface ParseError {
   /** Human-friendly error message */
   error: string;

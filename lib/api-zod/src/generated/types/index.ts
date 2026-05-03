@@ -6,9 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./fetchGistRequest";
 export * from "./flowEdge";
 export * from "./flowNode";
 export * from "./flowNodeType";
+export * from "./gistFile";
+export * from "./gistResult";
 export * from "./healthStatus";
 export * from "./parseError";
 export * from "./parseRequest";

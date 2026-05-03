@@ -126,6 +126,15 @@ export default function Landing({ onGetStarted }: LandingProps) {
             <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
           </motion.button>
           <p className="text-xs text-white/40">No signup required · Works in your browser</p>
+          <button
+            type="button"
+            onClick={() => {
+              window.location.hash = 'app-gist';
+            }}
+            className="text-xs text-white/40 hover:text-white/70 underline underline-offset-4 decoration-white/20 hover:decoration-white/50 transition-colors"
+          >
+            Or import directly from a GitHub Gist →
+          </button>
         </motion.div>
 
         {/* Preview Card */}
