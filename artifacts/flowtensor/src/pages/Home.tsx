@@ -5,7 +5,8 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { useParseCode } from '@workspace/api-client-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Play, Sparkles, Settings as SettingsIcon } from 'lucide-react';
+import { Loader2, Play, Sparkles, Settings as SettingsIcon, HelpCircle } from 'lucide-react';
+import FAQPanel from '@/components/FAQPanel';
 import GraphCanvas from '@/components/flow/GraphCanvas';
 import ExamplesPanel from '@/components/ExamplesPanel';
 import GitHubImport from '@/components/GitHubImport';
@@ -96,6 +97,7 @@ export default function Home() {
     typeof window !== 'undefined' && window.location.hash.includes('github');
   const [code, setCode] = useState(DEFAULT_CODE);
   const [isPanelOpen, setIsPanelOpen] = useState(!initialGithub);
+  const [isFaqOpen, setIsFaqOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [hasVisualized, setHasVisualized] = useState(false);
   const [mode, setMode] = useState<InputMode>(initialGithub ? 'github' : 'paste');
@@ -238,7 +240,10 @@ export default function Home() {
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              onClick={() => setIsPanelOpen((v) => !v)}
+              onClick={() => {
+                setIsFaqOpen(false);
+                setIsPanelOpen((v) => !v);
+              }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
                 isPanelOpen
                   ? 'bg-blue-600/20 border-blue-500/40 text-blue-300'
@@ -247,6 +252,23 @@ export default function Home() {
             >
               <Sparkles className="w-3.5 h-3.5" />
               Examples
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                setIsPanelOpen(false);
+                setIsFaqOpen((v) => !v);
+              }}
+              data-testid="btn-open-faq"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                isFaqOpen
+                  ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'
+                  : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white hover:border-white/20'
+              }`}
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              FAQ
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -274,6 +296,12 @@ export default function Home() {
           onClose={() => setIsPanelOpen(false)}
           onSelect={handleExampleSelect}
           isTyping={isTyping}
+        />
+
+        <FAQPanel
+          isOpen={isFaqOpen}
+          onClose={() => setIsFaqOpen(false)}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
 
         {/* Mode tabs */}
