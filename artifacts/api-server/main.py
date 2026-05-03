@@ -131,7 +131,7 @@ def health_check():
 # AI Explainer (Groq)
 # ──────────────────────────────────────────────────────────────────────
 
-GROQ_MODEL = "llama3-8b-8192"
+GROQ_MODEL = "qwen/qwen3-32b"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # Backend session state — never persisted to disk
