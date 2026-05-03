@@ -1,0 +1,157 @@
+Redesign the visualization to support three zoom levels with 
+drill-down navigation. The current flat node graph becomes 
+Level 3 (deepest). Add Level 1 and Level 2 above it.
+
+--- LEVEL 1: ARCHITECTURE VIEW (default) ---
+
+When code is first visualized, show the HIGH-LEVEL view:
+One large block per class or top-level function.
+
+Each block shows:
+- Block type badge: CLASS / FUNCTION / MODULE
+- Name (large, bold): e.g., "ConvNet", "train_loop", "ImageDataset"
+- Summary line (small, muted): auto-generated from the code
+  e.g., "3 layers · forward() · __init__()"
+  e.g., "20 epochs · Adam optimizer · CrossEntropyLoss"
+- Node count badge (bottom-right): "12 ops inside →"
+
+Arrows between blocks represent:
+- CALLS: function/class A calls or instantiates B
+  → solid arrow, label "calls"
+- PASSES DATA: A passes a variable to B  
+  → dashed arrow, label with variable name (e.g., "train_loader")
+- INHERITS: class A inherits from B (nn.Module)
+  → dotted arrow with hollow arrowhead, label "extends"
+
+Blocks are large (min 200×120px), colorful, and well-spaced.
+Use the existing color system:
+  Classes → blue (#3b82f6) with strong border
+  Functions → purple (#8b5cf6)
+  Data flows (DataLoader, DataFrame) → green (#22c55e)
+  Loss/Optimizer → red (#ef4444)
+
+--- LEVEL 2: CLASS/FUNCTION INTERIOR ---
+
+When a Level 1 block is double-clicked or "Expand →" is clicked:
+
+Animate the block expanding to fill more of the canvas.
+Show the METHODS and KEY ATTRIBUTES inside:
+
+For a CLASS block, expand to show:
+  ┌── ConvNet ─────────────────────────────────┐
+  │  __init__()     [7 ops inside →]           │
+  │  forward()      [6 ops inside →]           │
+  │  Attributes: conv1, bn1, pool, fc1, fc2    │
+  └────────────────────────────────────────────┘
+
+For a FUNCTION block, expand to show:
+  ┌── train_loop ──────────────────────────────┐
+  │  Setup:     criterion, optimizer, scheduler│
+  │  Loop:      20 epochs [8 ops inside →]     │
+  │  GPU:       images.to(cuda), labels.to()   │
+  └────────────────────────────────────────────┘
+
+Each method row is clickable → drills down to Level 3.
+
+--- LEVEL 3: OPERATION DETAIL (current visualization) ---
+
+Clicking a method row opens the existing step-by-step node graph
+for that method only — not the entire file.
+
+This is the current visualization but scoped to ONE method/function.
+
+--- NAVIGATION ---
+
+Add a BREADCRUMB BAR at the top of the canvas:
+
+  FlowTensor  >  ConvNet  >  forward()
+
+Each breadcrumb item is clickable to go back up a level.
+Animate the transition between levels:
+  Drill down: canvas zooms in (scale + translate, 400ms ease-out)
+  Go back up: canvas zooms out (reverse, 400ms ease-out)
+
+Also add a back button "← Back" top-left of the canvas
+when not at Level 1.
+
+--- BACKEND CHANGES ---
+
+Update the /parse endpoint to return a hierarchical structure:
+
+{
+  "level": 1,
+  "blocks": [
+    {
+      "id": "ConvNet",
+      "type": "class",
+      "name": "ConvNet",
+      "summary": "CNN with 2 conv layers + 2 FC layers",
+      "color": "blue",
+      "connections": [
+        { "to": "train_loop", "type": "calls", "label": "model" }
+      ],
+      "children": [
+        {
+          "id": "ConvNet.__init__",
+          "type": "method",
+          "name": "__init__",
+          "op_count": 7,
+          "nodes": [ ...existing flat node list... ]
+        },
+        {
+          "id": "ConvNet.forward",
+          "type": "method", 
+          "name": "forward",
+          "op_count": 6,
+          "nodes": [ ...existing flat node list... ]
+        }
+      ]
+    },
+    {
+      "id": "train_loop",
+      "type": "function",
+      "name": "train_loop",
+      "summary": "20 epochs · Adam · CrossEntropyLoss",
+      "color": "purple",
+      "connections": [
+        { "to": "ConvNet", "type": "calls", "label": "model(images)" },
+        { "to": "ImageDataset", "type": "passes_data", "label": "train_loader" }
+      ],
+      "children": [
+        { "id": "train_loop.body", "type": "function_body",
+          "name": "body", "op_count": 8,
+          "nodes": [ ...existing flat node list... ] }
+      ]
+    }
+  ]
+}
+
+The existing flat node parsing becomes a sub-step called 
+for each method/function body separately.
+
+--- SUMMARY AUTO-GENERATION ---
+
+For each block, auto-generate the summary line from the AST:
+
+CLASS summary: "{method_count} methods · {layer_count} layers" 
+  (count nn.* assignments in __init__)
+FUNCTION summary: extract key operations as comma-separated list
+  e.g., "20 epochs · Adam optimizer · CrossEntropyLoss"
+  Detect: loop ranges, optimizer names, loss function names
+
+--- LEVEL 1 LAYOUT ---
+
+Use a left-to-right flow layout for Level 1:
+Data sources (Datasets) → Models → Training loop → Output
+This mirrors how ML pipelines actually work in practice.
+
+--- START HERE ---
+
+1. First update the /parse endpoint to return the hierarchical JSON
+2. Then build the Level 1 rendering (big blocks + arrows)
+3. Then wire up the drill-down click to show Level 2
+4. Then wire Level 3 to the existing node graph
+5. Add breadcrumbs last
+
+Test with Snippet #4 (CNN with training loop) — 
+it has a class + a training function, perfect for Level 1.
