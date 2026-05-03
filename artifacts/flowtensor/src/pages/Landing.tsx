@@ -102,6 +102,60 @@ export default function Landing({ onGetStarted }: LandingProps) {
           your data flows, transforms, and moves through every step.
         </motion.p>
 
+        {/* Supported libraries pills */}
+        <motion.div
+          {...fadeUp(0.25)}
+          className="mt-6 flex flex-wrap items-center justify-center gap-2"
+        >
+          {[
+            { emoji: '🐼', label: 'Pandas' },
+            { emoji: '🔥', label: 'PyTorch' },
+            { emoji: '🔢', label: 'NumPy' },
+          ].map((p) => (
+            <span
+              key={p.label}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-white/90"
+              style={{
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                letterSpacing: '0.05em',
+              }}
+            >
+              <span aria-hidden>{p.emoji}</span>
+              {p.label}
+            </span>
+          ))}
+          <span
+            className="group relative inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs cursor-help"
+            style={{
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px dashed rgba(255,255,255,0.12)',
+              color: 'rgba(255,255,255,0.45)',
+              letterSpacing: '0.05em',
+            }}
+          >
+            <span aria-hidden>🟠</span>
+            TensorFlow
+            <span
+              className="text-[10px] font-bold tracking-wider"
+              style={{ color: '#f59e0b' }}
+            >
+              SOON
+            </span>
+            <span
+              role="tooltip"
+              className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-9 whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] text-white/90 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+              style={{
+                background: 'rgba(20,22,30,0.95)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                letterSpacing: '0.02em',
+              }}
+            >
+              Vote for TensorFlow support →
+            </span>
+          </span>
+        </motion.div>
+
         <motion.div {...fadeUp(0.3)} className="mt-10 flex flex-col items-center gap-3 w-full sm:w-auto">
           <motion.button
             onClick={onGetStarted}
