@@ -19,9 +19,10 @@ jobs:
           node-version: "24"
           cache: pnpm
 
+      - name: Approve build scripts for esbuild
+        run: pnpm config set --global allowBuilds.esbuild true
+
       - run: pnpm install
-        env:
-          PNPM_ALLOW_BUILD: "esbuild @swc/core msw unrs-resolver"
 
       - run: pnpm typecheck
 
