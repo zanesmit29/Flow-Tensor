@@ -19,9 +19,9 @@ jobs:
           node-version: "24"
           cache: pnpm
 
-      - run: pnpm approve-builds esbuild
-
       - run: pnpm install
+        env:
+          PNPM_ALLOW_BUILD: "esbuild @swc/core msw unrs-resolver"
 
       - run: pnpm typecheck
 
