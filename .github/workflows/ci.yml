@@ -19,10 +19,6 @@ jobs:
           node-version: "24"
           cache: pnpm
 
-      - name: Approve esbuild build scripts (pnpm 11)
-        run: |
-          sed -i '/^onlyBuiltDependencies:/i allowBuilds:\n  esbuild: true\n' pnpm-workspace.yaml
-
       - run: pnpm install
 
       - run: pnpm typecheck
