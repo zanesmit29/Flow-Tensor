@@ -18,7 +18,7 @@ pnpm workspace monorepo using TypeScript. Contains the FlowTensor app — a web 
 - **Animations**: framer-motion
 - **API codegen**: Orval (from OpenAPI spec)
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **Build**: esbuild (CJS bundle) for Node; uvicorn for Python
+- **Build**: uvicorn for Python backend; Vite for frontend
 
 ## Architecture
 
@@ -35,7 +35,7 @@ pnpm workspace monorepo using TypeScript. Contains the FlowTensor app — a web 
 - `POST /api/parse` — parses Python code (PyTorch/Pandas) and returns:
   - flat `nodes`/`edges` (legacy linear view)
   - hierarchical `blocks` (Level 1: classes, top-level functions, module main) with `children` containing per-method node graphs (Level 3). Frontend uses these for drill-down navigation.
-- `POST /api/explain-node` — generates context-aware AI explanation for a node via Groq (`llama3-8b-8192`). Returns `{source: "ai" | "static", what?, impact?, tip?, risk?, cached}`. Falls back silently to `static` when no key is configured or any error occurs. Cached in-memory by `(operation, parameters, shape_before, level)`.
+- `POST /api/explain-node` — generates context-aware AI explanation for a node via Groq (`qwen/qwen3-32b`). Returns `{source: "ai" | "static", what?, impact?, tip?, risk?, cached}`. Falls back silently to `static` when no key is configured or any error occurs. Cached in-memory by `(operation, parameters, shape_before, level)`.
 - `POST /api/set-groq-key` / `GET /api/groq-key-status` — manage user-supplied Groq key for the current backend session (stored in memory only, never persisted). Priority: user key → `GROQ_API_KEY` env var → none.
 
 ## AI Explainer (frontend)
