@@ -18,6 +18,25 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
 
+// ---------------------------------------------------------------------------
+// Per-client session id (sent as X-FlowTensor-Session on every request)
+// ---------------------------------------------------------------------------
+
+let _sessionId: string | null = null;
+
+function getSessionId(): string | null {
+  if (_sessionId) return _sessionId;
+  if (typeof window === "undefined" || typeof localStorage === "undefined") return null;
+  const key = "flowtensor_session_id";
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(key, id);
+  }
+  _sessionId = id;
+  return id;
+}
+
 /**
  * Set a base URL that is prepended to every relative request URL
  * (i.e. paths that start with `/`).
@@ -356,6 +375,12 @@ export async function customFetch<T = unknown>(
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
     }
+  }
+
+  // Attach per-client session id for server-side state isolation.
+  const sid = getSessionId();
+  if (sid) {
+    headers.set("x-flowtensor-session", sid);
   }
 
   const requestInfo = { method, url: resolveUrl(input) };
