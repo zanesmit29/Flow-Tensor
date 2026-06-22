@@ -20,7 +20,7 @@ jobs:
           cache: pnpm
 
       - name: Approve build scripts for esbuild
-        run: pnpm config set --global allowBuilds.esbuild true
+        run: echo 'allowBuilds.esbuild=true' >> .npmrc
 
       - run: pnpm install
 
