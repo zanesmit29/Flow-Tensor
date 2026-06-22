@@ -28,6 +28,9 @@ jobs:
       - run: pnpm typecheck
 
       - run: pnpm build
+        env:
+          PORT: "3000"
+          BASE_PATH: "/"
 
   python:
     name: Python – parser tests
