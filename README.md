@@ -72,9 +72,28 @@ pnpm install
 pnpm run typecheck
 pnpm run build
 pnpm --filter @workspace/flowtensor dev
-PORT=8080 pnpm --filter @workspace/api-server dev
 pnpm --filter @workspace/api-spec run codegen
+
+# Backend (Python)
+cd artifacts/api-server
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8080 --reload
 ```
+
+## Backend (Python)
+
+The API server is a Python FastAPI application (Python 3.11+).
+
+```bash
+pip install -r artifacts/api-server/requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8080 --reload
+```
+
+In local development the frontend reaches the backend via a Vite dev proxy that forwards `/api` to `http://localhost:8080` (configurable via `VITE_API_BASE_URL`).
+
+## Testing
+
+`pnpm test` runs the parser unit tests. CI (GitHub Actions) runs typecheck, build, and tests on every PR.
 
 ## Notes
 
