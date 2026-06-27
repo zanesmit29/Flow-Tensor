@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import base64
 import hashlib
 import urllib.parse
@@ -36,6 +37,38 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------------------------------------------------------------------------
+# Rate limiting — sliding window per session
+# ---------------------------------------------------------------------------
+
+_RATE_LIMIT_MAX_REQUESTS = int(os.environ.get("FLOWTENSOR_RATE_LIMIT", "30"))
+_RATE_LIMIT_WINDOW_SECONDS = 60
+
+_rate_windows: dict[str, list[float]] = {}
+
+
+def _is_rate_limited(sid: str) -> bool:
+    """Return True if the session has exceeded the rate limit."""
+    now = time.time()
+    cutoff = now - _RATE_LIMIT_WINDOW_SECONDS
+    timestamps = _rate_windows.get(sid, [])
+    # Prune old entries
+    timestamps = [t for t in timestamps if t > cutoff]
+    if len(timestamps) >= _RATE_LIMIT_MAX_REQUESTS:
+        _rate_windows[sid] = timestamps
+        return True
+    timestamps.append(now)
+    _rate_windows[sid] = timestamps
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Input size guard
+# ---------------------------------------------------------------------------
+
+_MAX_CODE_SIZE = int(os.environ.get("FLOWTENSOR_MAX_CODE_SIZE", str(50 * 1024)))  # 50 KB
 
 
 class ParseRequest(BaseModel):
@@ -388,12 +421,39 @@ async def groq_key_status(
 
 
 @app.post("/api/parse")
-async def parse_code(req: ParseRequest):
+async def parse_code(
+    req: ParseRequest,
+    x_flowtensor_session: str | None = Header(None),
+):
+    sid = _session_id_from_header(x_flowtensor_session)
+
+    # Rate limiting
+    if _is_rate_limited(sid):
+        return JSONResponse(
+            status_code=429,
+            content={
+                "error": "Rate limit exceeded. Please wait a moment before trying again.",
+                "detail": None,
+            },
+        )
+
     if not req.code or not req.code.strip():
         return JSONResponse(
             status_code=422,
             content={"error": "No code provided. Paste some Python code to visualize.", "detail": None},
         )
+
+    # Input size guard
+    if len(req.code) > _MAX_CODE_SIZE:
+        max_kb = _MAX_CODE_SIZE // 1024
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": f"Code is too large (max {max_kb} KB). Try pasting a smaller snippet.",
+                "detail": None,
+            },
+        )
+
     try:
         result = parse_python_code(req.code)
         return result
